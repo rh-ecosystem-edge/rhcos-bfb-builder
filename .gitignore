@@ -1,0 +1,5 @@
+workspace/rhel.repo
+workspace/doca.repo
+*.ociarchive
+cache
+custom-coreos-disk-images
