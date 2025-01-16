@@ -3,3 +3,5 @@ workspace/doca.repo
 *.ociarchive
 cache
 custom-coreos-disk-images
+pull-secret.txt
+tmp*

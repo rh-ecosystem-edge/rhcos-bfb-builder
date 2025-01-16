@@ -20,6 +20,7 @@ repos=(
 
 for repo in ${repos[@]}; do
   echo "[rhel-$RHEL_VER-$repo]" >> workspace/rhel.repo
+  echo "name=Red Hat Enterprise Linux $RHEL_VER - $repo" >> workspace/rhel.repo
   echo "baseurl=https://rhsm-pulp.corp.redhat.com/content/eus/rhel9/$RHEL_VER/\$basearch/$repo/os/" >> workspace/rhel.repo
   echo "enabled=1" >> workspace/rhel.repo
   echo "gpgcheck=1" >> workspace/rhel.repo
