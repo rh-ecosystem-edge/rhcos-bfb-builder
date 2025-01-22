@@ -20,6 +20,7 @@ RUN mkdir -p /build/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS} && \
 RUN export HOME=/build && \
   export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
   for rpm in /build/rpmbuild/SRPMS/*.src.rpm; do \
+  echo "Rebuilding $rpm with kernel version $KVER"; \
   rpmbuild --rebuild --define "KVERSION $KVER" "$rpm" || exit 1; \
   done
 
@@ -96,5 +97,8 @@ RUN rm -rf \
   /root/*.rpm && \
   truncate -s0 /etc/machine-id && \
   update-pciids
+
+RUN rm -rf /var/ipmi_sim/mellanox /var/lib/kubelet/config.yaml
+# The doca and dependencies installed files in /var.
 
 RUN ostree container commit
