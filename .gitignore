@@ -5,3 +5,6 @@ cache
 custom-coreos-disk-images
 pull-secret.txt
 tmp*
+old*
+.vscode
+scratch.txt
