@@ -17,12 +17,16 @@ RUN mkdir -p /build/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS} && \
   wget -r -np -e robots=off -A "*.rpm" -nd -P /build/rpmbuild/SRPMS ${D_SOC_BASE_URL}/SRPMS && \
   dnf builddep -y /build/rpmbuild/SRPMS/*.src.rpm
 
+# RUN export HOME=/build && \
+#   export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
+#   for rpm in /build/rpmbuild/SRPMS/*.src.rpm; do \
+#   echo "Rebuilding $rpm with kernel version $KVER"; \
+#   rpmbuild --rebuild --define "KVERSION $KVER" "$rpm" || exit 1; \
+#   done
+
 RUN export HOME=/build && \
   export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  for rpm in /build/rpmbuild/SRPMS/*.src.rpm; do \
-  echo "Rebuilding $rpm with kernel version $KVER"; \
-  rpmbuild --rebuild --define "KVERSION $KVER" "$rpm" || exit 1; \
-  done
+  rpmbuild --rebuild --define "Name kmod-bluefield_edac" --define "KVERSION $KVER" /build/rpmbuild/SRPMS/bluefield_edac-1.0-0.g71f1ab8.src.rpm
 
 # RUN HOME=/build rpmbuild --rebuild /build/rpmbuild/SRPMS/mlx-OpenIPMI-2.0.25-3.g7cdecd6.src.rpm
 # RUN export HOME=/build && \
@@ -89,12 +93,7 @@ RUN systemctl disable containerd || true
 
 RUN rm -rf \
   /var/cache/* \
-  /etc/machine-id \
-  /etc/yum/vars/infra \
-  /etc/BUILDTIME \
-  /root/anaconda-post.log \
-  /root/*.cfg \
-  /root/*.rpm && \
+  /etc/mahttps://meet.google.com/bri-haes-bmy.rpm && \
   truncate -s0 /etc/machine-id && \
   update-pciids
 
