@@ -1,6 +1,7 @@
 assets/rhel.repo
 assets/doca.repo
 *.ociarchive
+workspace
 cache
 custom-coreos-disk-images
 pull-secret.txt
