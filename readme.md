@@ -7,8 +7,10 @@ Podman and qemu-user-static are required to build the RHCOS image on a non-aarch
 ### Build the RHCOS image
 First use an openshift cluster to check the release image for the RHCOS version you want to build.
 ```bash
-export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos quay.io/openshift-release-dev/ocp-release:4.13.12-aarch64)
-export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit quay.io/openshift-release-dev/ocp-release:4.13.12-aarch64)
+export RHCOS_VERSION="4.17.12"
+export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
+export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
+export KERNEL_VERSION="5.14.0-427.50.1.el9_4.aarch64"
 ```
 
 Make sure you export PULL_SECRET, you can obtain it from console.redhat.com.
@@ -16,16 +18,15 @@ Make sure you export PULL_SECRET, you can obtain it from console.redhat.com.
 export PULL_SECRET=<path to pull secret file>
 ```
 
-Now you can build the RHCOS image.
 ```bash
-./build.sh
-podman build --platform=linux/arm64 \
-    --build-arg BUILDER_IMAGE=$BUILDER_IMAGE \
-    --build-arg TARGET_IMAGE=$TARGET_IMAGE \
-    --build-arg D_DOCA_VERSION=2.9.1 
-    --file Containerfile \
-    --authfile $PULL_SECRET \
-    --tag rhcos-bfb:latest
+podman build -f new.Containerfile \
+--authfile $PULL_SECRET \
+--build-arg D_OS=rhcos4.17 \
+--build-arg D_ARCH=aarch64 \
+--build-arg D_KERNEL_VER=$KERNEL_VERSION \
+--build-arg D_OFED_VERSION=24.10-1.1.4.0 \
+--build-arg D_BASE_IMAGE=$BUILDER_IMAGE \
+--build-arg D_FINAL_BASE_IMAGE=$TARGET_IMAGE \
 ```
 
 ### Creating disk boot images
