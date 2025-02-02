@@ -4,6 +4,11 @@
 Podman and qemu-user-static are required to build the RHCOS image on a non-aarch64 machine.
 
 
+### Clone the project
+```bash
+git clone --recursive https://github.com/Okoyl/rhcos-bfb.git
+```
+
 ### Build the RHCOS image
 First use an openshift cluster to check the release image for the RHCOS version you want to build.
 ```bash
@@ -41,5 +46,11 @@ podman run --rm -it --privileged -v /root:/root fedora:41
 
 # In the container
 sudo dnf install -y osbuild osbuild-tools osbuild-ostree podman jq xfsprogs
-sudo custom-coreos-disk-images/custom-coreos-disk-images.sh --ociarchive rhcos-bfb.ociarchive --platforms metal
+sudo custom-coreos-disk-images/custom-coreos-disk-images.sh --ociarchive rhcos-bfb.ociarchive --platforms metal --metal-image-size 8000
+```
+
+### Creating a BFB image
+```bash
+mkdir workspace
+podman run --rm -it --privileged -v $(pwd)/workspace:/workspace --mount type=bind,source=/dev,target=/dev --mount type=bind,source=/sys,target=/sys --mount type=bind,source=/proc,target=/proc <Container Image Name> /bin/bash -x /root/workspace/create_bfb
 ```

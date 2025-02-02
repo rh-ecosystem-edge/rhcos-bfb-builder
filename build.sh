@@ -1,7 +1,7 @@
 #!/bin/bash
 
 RHEL_VER=9.4
-TARGET_REPOFILE=workspace/rhel.repo
+TARGET_REPOFILE=assets/rhel.repo
 
 ARCH=${ARCH:-"arm64-dpu"}
 DOCA_VERSION="2.9.1"
@@ -19,16 +19,16 @@ repos=(
 )
 
 for repo in ${repos[@]}; do
-  echo "[rhel-$RHEL_VER-$repo]" >> workspace/rhel.repo
-  echo "name=Red Hat Enterprise Linux $RHEL_VER - $repo" >> workspace/rhel.repo
-  echo "baseurl=https://rhsm-pulp.corp.redhat.com/content/eus/rhel9/$RHEL_VER/\$basearch/$repo/os/" >> workspace/rhel.repo
-  echo "enabled=1" >> workspace/rhel.repo
-  echo "gpgcheck=1" >> workspace/rhel.repo
-  echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release" >> workspace/rhel.repo
-  echo -e "\n" >> workspace/rhel.repo
+  echo "[rhel-$RHEL_VER-$repo]" >> assets/rhel.repo
+  echo "name=Red Hat Enterprise Linux $RHEL_VER - $repo" >> assets/rhel.repo
+  echo "baseurl=https://rhsm-pulp.corp.redhat.com/content/eus/rhel9/$RHEL_VER/\$basearch/$repo/os/" >> assets/rhel.repo
+  echo "enabled=1" >> assets/rhel.repo
+  echo "gpgcheck=1" >> assets/rhel.repo
+  echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release" >> assets/rhel.repo
+  echo -e "\n" >> assets/rhel.repo
 done
 
-cat << EOF > workspace/doca.repo
+cat << EOF > assets/doca.repo
 [doca]
 name=Nvidia DOCA repository
 baseurl=$BASE_URL/doca/$DOCA_VERSION/${DISTRO}${DISTRO_DOCA_VERSION}/arm64-dpu/

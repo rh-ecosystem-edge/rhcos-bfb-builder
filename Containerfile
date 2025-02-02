@@ -23,7 +23,7 @@ ARG D_OFED_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSIO
 ARG D_OFED_SRC_TYPE=""
 ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/SoC"
 
-# COPY workspace/rhel.repo /etc/yum.repos.d
+# COPY assets/rhel.repo /etc/yum.repos.d
 
 ARG D_OFED_SRC_ARCHIVE="MLNX_OFED_SRC-${D_OFED_SRC_TYPE}${D_OFED_VERSION}.tgz"
 ARG D_OFED_URL_PATH="${D_OFED_BASE_URL}/${D_OFED_SRC_ARCHIVE}"  # although argument name says URL, local `*.tgz` compressed files may also be used (intended for internal use)
@@ -296,10 +296,10 @@ ARG D_DOCA_VERSION
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 
-COPY workspace/rhel.repo /etc/yum.repos.d
-COPY workspace/doca.repo /etc/yum.repos.d
-COPY workspace/docker.repo /etc/yum.repos.d
-COPY workspace/kubernetes.repo /etc/yum.repos.d
+COPY assets/rhel.repo /etc/yum.repos.d
+COPY assets/doca.repo /etc/yum.repos.d
+COPY assets/docker.repo /etc/yum.repos.d
+COPY assets/kubernetes.repo /etc/yum.repos.d
 
 RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 # EPEL is required for jsoncpp strongswan libunwind
@@ -431,12 +431,20 @@ RUN dnf install -y \
   nfs-utils \ 
   nvme-cli nvmetcli\
   bf2-bmc-fw-signed bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
-  bf2-cec-fw-signed bf3-cec-fw-signed
+  bf2-cec-fw-signed bf3-cec-fw-signed \
+  python3-devel
+# python3-devel required for pathfix.py (create_bfb)
 
 
 RUN systemctl enable mlx_ipmid.service || true
 RUN systemctl enable set_emu_param.service || true
 # RUN systemctl enable mst || true
+
+RUN mkdir /root/workspace
+
+ADD upstream/common/install.env /root/workspace/install.env/
+
+ADD assets/install.sh assets/create_bfb /root/workspace/
 
 RUN dnf clean all -y && \
   rm -rf /var/cache/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \

@@ -1,5 +1,5 @@
-workspace/rhel.repo
-workspace/doca.repo
+assets/rhel.repo
+assets/doca.repo
 *.ociarchive
 cache
 custom-coreos-disk-images
