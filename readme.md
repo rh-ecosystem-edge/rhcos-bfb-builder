@@ -5,6 +5,7 @@ Podman and qemu-user-static are required to build the RHCOS image on a non-aarch
 
 
 ### Clone the project
+The project contains Mellanox's bfscripts as a git submoudle, so be sure to clone it as well:
 ```bash
 git clone --recursive https://github.com/Okoyl/rhcos-bfb.git
 ```
@@ -13,9 +14,10 @@ git clone --recursive https://github.com/Okoyl/rhcos-bfb.git
 First use an openshift cluster to check the release image for the RHCOS version you want to build.
 ```bash
 export RHCOS_VERSION="4.17.12"
+export KERNEL_VERSION="5.14.0-427.50.1.el9_4.aarch64"
+
 export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
-export KERNEL_VERSION="5.14.0-427.50.1.el9_4.aarch64"
 ```
 
 Make sure you export PULL_SECRET, you can obtain it from console.redhat.com.
@@ -24,7 +26,7 @@ export PULL_SECRET=<path to pull secret file>
 ```
 
 ```bash
-podman build -f new.Containerfile \
+podman build -f Containerfile \
 --authfile $PULL_SECRET \
 --build-arg D_OS=rhcos4.17 \
 --build-arg D_ARCH=aarch64 \
@@ -46,11 +48,10 @@ podman run --rm -it --privileged -v /root:/root fedora:41
 
 # In the container
 sudo dnf install -y osbuild osbuild-tools osbuild-ostree podman jq xfsprogs
-sudo custom-coreos-disk-images/custom-coreos-disk-images.sh --ociarchive rhcos-bfb.ociarchive --platforms metal --metal-image-size 8000
+sudo custom-coreos-disk-images/custom-coreos-disk-images.sh --ociarchive rhcos-bfb.ociarchive --platforms metal --metal-image-size 5000
 ```
 
 ### Creating a BFB image
 ```bash
-mkdir workspace
-podman run --rm -it --privileged -v $(pwd)/workspace:/workspace --mount type=bind,source=/dev,target=/dev --mount type=bind,source=/sys,target=/sys --mount type=bind,source=/proc,target=/proc <Container Image Name> /bin/bash -x /root/workspace/create_bfb
+./make_bfb.sh
 ```
