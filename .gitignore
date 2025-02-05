@@ -4,7 +4,6 @@ assets/doca.repo
 *.raw
 workspace
 cache
-custom-coreos-disk-images
 pull-secret.txt
 tmp*
 old*

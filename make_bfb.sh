@@ -133,7 +133,7 @@ printf "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 initrd=initramfs 
 printf "VenHw(F019E406-8C9C-11E5-8797-001ACA00BFC4)/Image" > "$boot_path"
 printf "Linux from rshim" > "$boot_desc"
 
-$PROJDIR/bfb/bfscripts/mlx-mkbfb \
+$PROJDIR/bfscripts/mlx-mkbfb \
     --image "$kernel" --initramfs "$initramfs" \
     --capsule "$CAPSULE" \
     --boot-args-v0 "$boot_args" \

@@ -39,14 +39,13 @@ podman build -f Containerfile \
 ### Creating disk boot images
 ```bash
 skopeo copy containers-storage:rhcos-bfb:latest oci-archive:rhcos-bfb.ociarchive
-git clone https://github.com/coreos/custom-coreos-disk-images.git
 ```
 
 You can use `fedora:41` as it has the `osbuild-tools` package.
 ```bash
 podman run --rm -it --privileged -v /root:/root fedora:41
 
-# In the container
+# In Fedora based system:
 sudo dnf install -y osbuild osbuild-tools osbuild-ostree podman jq xfsprogs
 sudo custom-coreos-disk-images/custom-coreos-disk-images.sh --ociarchive rhcos-bfb.ociarchive --platforms metal --metal-image-size 5000
 ```
