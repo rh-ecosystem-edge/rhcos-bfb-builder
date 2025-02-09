@@ -5,17 +5,17 @@ echo "==========================================" | tee /dev/kmsg
 echo "Installing Red Hat CoreOS. Please wait... " | tee /dev/kmsg
 echo "==========================================" | tee /dev/kmsg
 
-IMG_INFO="$(stat /rhcos-metal.aarch64.raw.gz)"
+IMG_INFO="$(stat /rhcos-bfb-metal.aarch64.raw.gz)"
 
 echo " Image is: $IMG_INFO" | tee /dev/kmsg
-if gzip -t /rhcos-metal.aarch64.raw.gz; then
+if gzip -t /rhcos-bfb-metal.aarch64.raw.gz; then
   echo " Gzipped image is OK" | tee /dev/kmsg
 else
   echo " Gzipped image is Corrupted" | tee /dev/kmsg
 fi
 
-#gzip -d /rhcos-metal.aarch64.raw.gz
-IMG_INFO="$(stat /rhcos-metal.aarch64.raw)"
+#gzip -d /rhcos-bfb-metal.aarch64.raw.gz
+IMG_INFO="$(stat /rhcos-bfb-metal.aarch64.raw)"
 
 
 modprobe -a nvme mmc_block 2>&1 | tee /dev/kmsg
@@ -31,9 +31,9 @@ echo "$(lsblk)"
 
 sleep 5
 
-gzip -cd /rhcos-metal.aarch64.raw.gz | dd of=$device bs=64M oflag=sync status=progress 2>&1 | tee /dev/kmsg
+gzip -cd /rhcos-bfb-metal.aarch64.raw.gz | dd of=$device bs=64M oflag=sync status=progress 2>&1 | tee /dev/kmsg
 
-#dd if=/rhcos-metal.aarch64.raw of=$device bs=64M oflag=sync status=progress 2>&1 | tee /dev/kmsg
+#dd if=/rhcos-bfb-metal.aarch64.raw of=$device bs=64M oflag=sync status=progress 2>&1 | tee /dev/kmsg
 
 if [ $? -eq 0 ]; then
         echo "========= DD write is done ========" | tee /dev/kmsg

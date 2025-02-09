@@ -34,6 +34,8 @@ podman build -f Containerfile \
 --build-arg D_OFED_VERSION=24.10-1.1.4.0 \
 --build-arg D_BASE_IMAGE=$BUILDER_IMAGE \
 --build-arg D_FINAL_BASE_IMAGE=$TARGET_IMAGE \
+--build-arg D_DOCA_DISTRO=rhel9.2 \
+--tag rhcos-bfb:latest
 ```
 
 ### Creating disk boot images
@@ -47,7 +49,11 @@ podman run --rm -it --privileged -v /root:/root fedora:41
 
 # In Fedora based system:
 sudo dnf install -y osbuild osbuild-tools osbuild-ostree podman jq xfsprogs
-sudo custom-coreos-disk-images/custom-coreos-disk-images.sh --ociarchive rhcos-bfb.ociarchive --platforms metal --metal-image-size 5000
+sudo custom-coreos-disk-images/custom-coreos-disk-images.sh \
+  --ociarchive rhcos-bfb.ociarchive \
+  --platforms metal \
+  --metal-image-size 5000 \
+  --extra-kargs "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 ignore_loglevel"
 ```
 
 ### Creating a BFB image

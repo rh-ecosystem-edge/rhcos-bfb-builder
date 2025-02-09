@@ -98,15 +98,15 @@ chmod +x usr/bin/rhcos-dpu.sh
 
 ln -s /usr/lib/systemd/system/install-rhcos.service etc/systemd/system/initrd.target.wants/install-rhcos.service
 
-echo "Compressing rhcos-metal.aarch64.raw using gzip..."
+echo "Compressing rhcos-bfb-metal.aarch64.raw using gzip..."
 if command -v pigz &>/dev/null; then
-    pigz -c --fast $PROJDIR/rhcos-metal.aarch64.raw > rhcos-metal.aarch64.raw.gz
+    pigz -c --fast $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
 else
-    gzip -c --fast $PROJDIR/rhcos-metal.aarch64.raw > rhcos-metal.aarch64.raw.gz
+    gzip -c --fast $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
 fi
 
-#echo "Copying rhcos-metal.aarch64.raw..."
-#cp $PROJDIR/rhcos-metal.aarch64.raw rhcos-metal.aarch64.raw
+#echo "Copying rhcos-bfb-metal.aarch64.raw..."
+#cp $PROJDIR/rhcos-bfb-metal.aarch64.raw rhcos-bfb-metal.aarch64.raw
 
 
 echo "Compressing initramfs back using zstd..."
