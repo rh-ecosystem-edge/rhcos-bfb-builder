@@ -320,9 +320,8 @@ COPY --from=doca-builder /build/rpmbuild/RPMS/${D_ARCH}/*.rpm /tmp/rpms
 WORKDIR /
 RUN rm opt && mkdir -p usr/opt && ln -s usr/opt opt
 
-# TODO: Don't install devel, debuginfo, debugsource, source packages
-
-RUN rpm -ivh --nodeps /tmp/rpms/*.rpm
+RUN rm /tmp/rpms/mlnx-ofa_kernel-devel*.rpm /tmp/rpms/kmod-mlnx-ofa_kernel-debuginfo*.rpm && \
+  rpm -ivh --nodeps /tmp/rpms/*.rpm
 
 # RUN dnf remove -y openvswitch-selinux-extra-policy openvswitch* runc
 
@@ -411,16 +410,19 @@ RUN dnf -y install \
 RUN dnf download \
   doca-runtime doca-runtime-kernel doca-runtime-user \
   # doca-devel doca-devel-kernel doca-devel-user \
-  bf-release
-
-RUN rpm -ivh --nodeps doca-runtime-kernel-${D_DOCA_VERSION}*.${D_ARCH}.rpm
+  bf-release && \
+  rpm -ivh --nodeps \
+  doca-runtime-kernel-${D_DOCA_VERSION}*.${D_ARCH}.rpm \
+  doca-runtime-user*.${D_ARCH}.rpm \
+  doca-runtime-${D_DOCA_VERSION}*.${D_ARCH}.rpm
 # doca-runtime-kernel and doca-devel-kernel are still tied to specific kernel, but we compiled these on our own, so we ignore the specific version dependency
-
-RUN rpm -ivh --nodeps doca-runtime-user*.${D_ARCH}.rpm
 # doca-runtime-user requires it's own doca-openvswitch packages, and requires bf-release
 
-RUN rpm -ivh doca-runtime-${D_DOCA_VERSION}*.${D_ARCH}.rpm
-
+RUN mkdir /tmp/bf-release; \
+  rpm2cpio bf-release-*.aarch64.rpm | cpio -idm -D /tmp/bf-release; \
+  cp -rnv /tmp/bf-release/* /; \
+  echo "bf-bundle-${D_DOCA_VERSION}_${D_OS}" > /etc/mlnx-release
+# Install bf-release in a hacky way
 
 RUN dnf install -y \
   mstflint \
@@ -447,15 +449,34 @@ RUN dnf install -y \
 # python3-devel required for pathfix.py (create_bfb)
 
 
-RUN systemctl enable mlx_ipmid.service || true; \
-systemctl enable set_emu_param.service || true
-# RUN systemctl enable mst || true
+COPY assets/reload_mlx.service /usr/lib/systemd/system
+COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
 
-RUN mkdir /root/workspace
 
-RUN dnf clean all -y && \
-  rm -rf /var/cache/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \
-  truncate -s0 /etc/machine-id \
+RUN chmod +x /usr/bin/reload_mlx.sh; \
+  systemctl enable mlx_ipmid.service || true; \
+  systemctl enable set_emu_param.service || true; \
+  systemctl enable reload_mlx.service || true; 
+  # RUN systemctl enable mst || true
+
+
+# RUN echo 'omit_drivers+=" mlx4_core mlx4_en mlx5_core mlxbf_gige.ko mlxfw "' >> /usr/lib/dracut/dracut.conf.d/50-mellanox-overrides.conf 
+# RUN set -x; kver=$(cd /usr/lib/modules && echo *); \
+#   depmod -a $kver && \
+#   dracut -vf /usr/lib/modules/$kver/initramfs.img $kver
+
+
+# Reduce final size
+RUN dnf remove -y \
+  geolite2-city \
+  ose-azure-acr-image-credential-provider \
+  ose-aws-ecr-image-credential-provider \
+  ose-gcp-gcr-image-credential-provider \
+  samba-client-libs && \
+  dnf clean all -y && \
+  rm -rf /var/cache/* /var/log/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \
+  truncate -s0 /etc/machine-id && \
+  find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
   update-pciids
 
 RUN ostree container commit

@@ -15,7 +15,7 @@ else
 fi
 
 #gzip -d /rhcos-bfb-metal.aarch64.raw.gz
-IMG_INFO="$(stat /rhcos-bfb-metal.aarch64.raw)"
+IMG_INFO="$(stat /rhcos-bfb-metal.aarch64.raw.gz)"
 
 
 modprobe -a nvme mmc_block 2>&1 | tee /dev/kmsg
@@ -31,7 +31,8 @@ echo "$(lsblk)"
 
 sleep 5
 
-gzip -cd /rhcos-bfb-metal.aarch64.raw.gz | dd of=$device bs=64M oflag=sync status=progress 2>&1 | tee /dev/kmsg
+gzip -cd /rhcos-bfb-metal.aarch64.raw.gz | dd of=$device bs=1M oflag=sync status=progress 2>&1 | tee /dev/kmsg
+sync
 
 #dd if=/rhcos-bfb-metal.aarch64.raw of=$device bs=64M oflag=sync status=progress 2>&1 | tee /dev/kmsg
 

@@ -3,6 +3,7 @@ assets/doca.repo
 *.ociarchive
 *.raw
 workspace
+output
 cache
 pull-secret.txt
 tmp*

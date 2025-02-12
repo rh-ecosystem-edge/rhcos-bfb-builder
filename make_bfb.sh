@@ -5,6 +5,9 @@ WDIR=workspace
 mkdir -p $WDIR
 export WDIR=$(readlink -f $WDIR)
 
+OUTDIR=$PROJDIR/output
+mkdir -p $OUTDIR
+
 vmlinuz="$WDIR/vmlinuz"
 initramfs_def="$WDIR/initramfs_default"
 initramfs="$WDIR/initramfs"
@@ -100,9 +103,9 @@ ln -s /usr/lib/systemd/system/install-rhcos.service etc/systemd/system/initrd.ta
 
 echo "Compressing rhcos-bfb-metal.aarch64.raw using gzip..."
 if command -v pigz &>/dev/null; then
-    pigz -c --fast $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
+    pigz -c -9 $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
 else
-    gzip -c --fast $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
+    gzip -c -9 $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
 fi
 
 #echo "Copying rhcos-bfb-metal.aarch64.raw..."
@@ -140,6 +143,11 @@ $PROJDIR/bfscripts/mlx-mkbfb \
     --boot-args-v2 "$boot_args2" \
     --boot-path "$boot_path" \
     --boot-desc "$boot_desc" \
-    ${BFB} workspace/${BFB_FILENAME}
+    ${BFB} $WDIR/${BFB_FILENAME}
 
-echo $BFB_FILENAME
+mv $WDIR/$BFB_FILENAME $OUTDIR/$BFB_FILENAME
+
+rm -rf $WDIR/initramfs_mod
+rm -rf $WDIR/rhcos_rootfs
+
+echo "BFB Image is Ready! $OUTDIR/$BFB_FILENAME"
