@@ -26,7 +26,7 @@ export PULL_SECRET=<path to pull secret file>
 ```
 
 ```bash
-podman build -f Containerfile \
+podman build -f rhcos-bfb.Containerfile \
 --authfile $PULL_SECRET \
 --build-arg D_OS=rhcos4.17 \
 --build-arg D_ARCH=aarch64 \
@@ -59,4 +59,9 @@ sudo custom-coreos-disk-images/custom-coreos-disk-images.sh \
 ### Creating a BFB image
 ```bash
 ./make_bfb.sh
+```
+
+### Flashing to DPU
+```bash
+bfb-install --rshim /dev/rshim0 --config worker.ign --bfb rhcos.bfb
 ```

@@ -328,7 +328,6 @@ RUN rm /tmp/rpms/mlnx-ofa_kernel-devel*.rpm /tmp/rpms/kmod-mlnx-ofa_kernel-debug
 WORKDIR /root
 
 RUN dnf -y install \
-  # bf-release \
   collectx-clxapi \
   doca-apsh-config \
   doca-bench \
@@ -420,6 +419,7 @@ RUN dnf download \
 
 RUN mkdir /tmp/bf-release; \
   rpm2cpio bf-release-*.aarch64.rpm | cpio -idm -D /tmp/bf-release; \
+  rm -rf /tmp/bf-release/var /tmp/bf-release/usr/lib/systemd /tmp/bf-release/usr/share /tmp/bf-release/etc/crictl /tmp/bf-release/etc/kubelet.d /tmp/bf-release/etc/cni; \
   cp -rnv /tmp/bf-release/* /; \
   echo "bf-bundle-${D_DOCA_VERSION}_${D_OS}" > /etc/mlnx-release
 # Install bf-release in a hacky way
@@ -433,6 +433,7 @@ RUN dnf install -y \
   mmc-utils \
   device-mapper \
   edac-utils \
+  lm_sensors \
   efibootmgr \
   i2c-tools \ 
   ipmitool \ 
@@ -452,12 +453,16 @@ RUN dnf install -y \
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
 
+RUN sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
+  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
+  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service
 
 RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
-  systemctl enable reload_mlx.service || true; 
-  # RUN systemctl enable mst || true
+  systemctl enable reload_mlx.service || true; \
+  systemctl disable bfvcheck.service || true;
+# RUN systemctl enable mst || true
 
 
 # RUN echo 'omit_drivers+=" mlx4_core mlx4_en mlx5_core mlxbf_gige.ko mlxfw "' >> /usr/lib/dracut/dracut.conf.d/50-mellanox-overrides.conf 
@@ -471,8 +476,7 @@ RUN dnf remove -y \
   geolite2-city \
   ose-azure-acr-image-credential-provider \
   ose-aws-ecr-image-credential-provider \
-  ose-gcp-gcr-image-credential-provider \
-  samba-client-libs && \
+  ose-gcp-gcr-image-credential-provider && \
   dnf clean all -y && \
   rm -rf /var/cache/* /var/log/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \
   truncate -s0 /etc/machine-id && \
