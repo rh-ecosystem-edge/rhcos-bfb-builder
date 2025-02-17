@@ -479,7 +479,7 @@ RUN dnf remove -y \
   ose-gcp-gcr-image-credential-provider && \
   dnf clean all -y && \
   rm -rf /var/cache/* /var/log/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \
-  truncate -s0 /etc/machine-id && \
+  rm -f /etc/machine-id && \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
   update-pciids
 
