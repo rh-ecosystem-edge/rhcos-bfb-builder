@@ -65,4 +65,11 @@ echo "===================================" | tee /dev/kmsg
 
 sleep 5
 
-echo b > /proc/sysrq-trigger
+while true; do
+    sleep 5
+    echo rebooting
+    echo s > /proc/sysrq-trigger
+    echo u > /proc/sysrq-trigger
+    echo b > /proc/sysrq-trigger
+    sleep 10  # Prevent excessive looping in case reboot fails
+done
