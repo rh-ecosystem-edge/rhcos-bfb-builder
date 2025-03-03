@@ -21,12 +21,6 @@ RUN microdnf install -y gzip efibootmgr kmod util-linux cpio && \
   rpm2cpio binutils*.rpm | cpio -idm && \
   rm -f binutils-*.rpm
 
-COPY bfb/init.sh /init
-COPY bfb/install_rhcos.sh /usr/bin/install_rhcos.sh
-
-RUN chmod +x /init && \
-  chmod +x /usr/bin/install_rhcos.sh
-
 RUN microdnf clean all && \
   microdnf remove -y lua-libs rpm-libs libmodulemd microdnf cpio rpm file-libs libsolv libdnf sqlite-libs \
   gnupg librepo gpgme dejavu-sans-fonts langpacks-core-font-en langpacks-en langpacks-core-en \

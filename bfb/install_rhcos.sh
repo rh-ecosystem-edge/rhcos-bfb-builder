@@ -1,8 +1,11 @@
 #!/bin/bash
-
 set -e
 
-echo "Starting installer..." | tee /dev/kmsg
+sleep 5
+echo "==============================================" | tee /dev/kmsg
+echo "  Installing Red Hat CoreOS. Please wait...   " | tee /dev/kmsg
+echo "==============================================" | tee /dev/kmsg
+
 
 default_device=/dev/mmcblk0
 if [ -b /dev/nvme0n1 ]; then
@@ -48,6 +51,7 @@ mount -t efivarfs none /sys/firmware/efi/efivars
 efibootmgr -c -d $device -p 2 -l '\EFI\redhat\grubaa64.efi' -L "Red-Hat CoreOS GRUB"
 echo "Written EFI record." | tee /dev/kmsg
 
+if [ -f /tmp/bf.cfg ]; then
 modprobe ext4
 sleep 1
 
@@ -55,6 +59,7 @@ mount "${device}p3" /mnt
 mkdir /mnt/ignition
 cp /tmp/bf.cfg /mnt/ignition/config.ign
 umount /mnt
+fi
 
 eho "Copied ignition to boot partition." | tee /dev/kmsg
 
@@ -67,7 +72,7 @@ sleep 5
 
 while true; do
     sleep 5
-    echo rebooting
+    echo "rebooting" | tee /dev/kmsg
     echo s > /proc/sysrq-trigger
     echo u > /proc/sysrq-trigger
     echo b > /proc/sysrq-trigger
