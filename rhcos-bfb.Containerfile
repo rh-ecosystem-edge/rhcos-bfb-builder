@@ -3,8 +3,8 @@ ARG D_FINAL_BASE_IMAGE
 ARG D_OS="rhcos4.17"
 ARG D_ARCH="aarch64"
 ARG D_CONTAINER_VER="0"
-ARG D_DOCA_VERSION="2.9.1"
-ARG D_OFED_VERSION="24.10-1.1.4.0"
+ARG D_DOCA_VERSION="2.10.0"
+ARG D_OFED_VERSION="25.01-0.6.0.0"
 ARG D_KERNEL_VER="5.14.0-427.50.1.el9_4.${D_ARCH}"
 ARG D_OFED_SRC_DOWNLOAD_PATH="/run/mellanox/src"
 ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSION}
@@ -64,6 +64,7 @@ FROM $D_BASE_IMAGE AS doca-builder
 ARG D_OS
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
+ARG D_OFED_VERSION
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/SoC"
@@ -238,10 +239,14 @@ RUN PACKAGE="pinctrl-mlxbf3" && \
 
 ARG D_OFED_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/MLNX_OFED"
 
-RUN PACKAGES=("fwctl" "iser" "isert" "knem" "xpmem") && \ 
-  PATTERNS=$(IFS=,; echo "${PACKAGES[*]/%/-*.src.rpm}") && \
-  wget -c -r -l1 -np -nH --cut-dirs=1 --reject-regex '(\?C=|index\.html)' -nd -P /build/rpmbuild/SRPMS -nv -A  "$PATTERNS" "$D_OFED_BASE_URL/SRPMS" && \
-  rm -rf /build/rpmbuild/SRPMS/xpmem-lib*.src.rpm
+WORKDIR /tmp
+
+RUN PACKAGES=("fwctl" "iser" "isert" "knem" "xpmem" "srp") && \
+  TARFILE=MLNX_OFED_SRC-$D_OFED_VERSION.tgz && \
+  wget -P /tmp "$D_OFED_BASE_URL/$TARFILE" && \
+  tar --wildcards -xzf "$TARFILE" -C "/build/rpmbuild" $(for pkg in "${PACKAGES[@]}"; do echo "${TARFILE%.*}/SRPMS/${pkg}-*.src.rpm"; done) \
+  --exclude='SRPMS/xpmem-lib-*.src.rpm' --strip-components=1
+
 
 RUN PACKAGE="iser" && \
   export HOME=/build && \
@@ -264,12 +269,12 @@ RUN PACKAGE="fwctl" && \
   rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
   rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
 
-# RUN PACKAGE="srp" && \
-#   export HOME=/build && \
-#   export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-#   rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-#   rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-#   rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
+RUN PACKAGE="srp" && \
+  export HOME=/build && \
+  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
+  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
+  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
+  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
 
 RUN dnf install -y libtool
 
@@ -320,7 +325,7 @@ COPY --from=doca-builder /build/rpmbuild/RPMS/${D_ARCH}/*.rpm /tmp/rpms
 WORKDIR /
 RUN rm opt && mkdir -p usr/opt && ln -s usr/opt opt
 
-RUN rm /tmp/rpms/mlnx-ofa_kernel-devel*.rpm /tmp/rpms/kmod-mlnx-ofa_kernel-debuginfo*.rpm && \
+RUN rm -f /tmp/rpms/mlnx-ofa_kernel-devel*.rpm /tmp/rpms/kmod-mlnx-ofa_kernel-debuginfo*.rpm /tmp/rpms/*-devel*.rpm && \
   rpm -ivh --nodeps /tmp/rpms/*.rpm
 
 # RUN dnf remove -y openvswitch-selinux-extra-policy openvswitch* runc
@@ -425,6 +430,8 @@ RUN mkdir /tmp/bf-release; \
 # Install bf-release in a hacky way
 
 RUN dnf install -y \
+  acpid \
+  bridge-utils \
   mstflint \
   mft-autocomplete \
   mlnx-snap \
@@ -449,7 +456,7 @@ RUN dnf install -y \
   && dnf clean all
 # python3-devel required for pathfix.py (create_bfb)
 
-
+# Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
 
@@ -457,7 +464,12 @@ RUN sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service
 
+RUN cp /usr/share/doc/mlnx-ofa_kernel/vf-net-link-name.sh /etc/infiniband/vf-net-link-name.sh && \
+  cp /usr/share/doc/mlnx-ofa_kernel/ /usr/lib/udev/rules.d/82-net-setup-link.rules
+
 RUN chmod +x /usr/bin/reload_mlx.sh; \
+  systemctl enable acpid.service || true; \
+  systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
