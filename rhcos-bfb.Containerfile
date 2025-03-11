@@ -424,7 +424,9 @@ RUN dnf download \
 
 RUN mkdir /tmp/bf-release; \
   rpm2cpio bf-release-*.aarch64.rpm | cpio -idm -D /tmp/bf-release; \
-  rm -rf /tmp/bf-release/var /tmp/bf-release/usr/lib/systemd /tmp/bf-release/usr/share /tmp/bf-release/etc/crictl /tmp/bf-release/etc/kubelet.d /tmp/bf-release/etc/cni; \
+  rm -rf /tmp/bf-release/var /tmp/bf-release/usr/lib/systemd /tmp/bf-release/usr/share \
+  /tmp/bf-release/etc/NetworkManager \
+  /tmp/bf-release/etc/crictl* /tmp/bf-release/etc/kubelet.d /tmp/bf-release/etc/cni; \
   cp -rnv /tmp/bf-release/* /; \
   echo "bf-bundle-${D_DOCA_VERSION}_${D_OS}" > /etc/mlnx-release
 # Install bf-release in a hacky way
@@ -456,23 +458,33 @@ RUN dnf install -y \
   && dnf clean all
 # python3-devel required for pathfix.py (create_bfb)
 
+ARG D_UBUNTU_BASEURL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/ubuntu22.04/arm64-dpu/"
+RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Ksfc-hbn[^"]+') && \
+  curl -O "${D_UBUNTU_BASEURL}/${PACKAGE}" && \
+  ar x $PACKAGE data.tar.zst && \
+  tar --keep-directory-symlink -xf data.tar.zst -C / && \
+  rm -f $PACKAGE
+
 # Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
+COPY assets/var-opt.mount /usr/lib/systemd/system
 
 RUN sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service
 
 RUN cp /usr/share/doc/mlnx-ofa_kernel/vf-net-link-name.sh /etc/infiniband/vf-net-link-name.sh && \
-  cp /usr/share/doc/mlnx-ofa_kernel/ /usr/lib/udev/rules.d/82-net-setup-link.rules
+  cp /usr/share/doc/mlnx-ofa_kernel/82-net-setup-link.rules /usr/lib/udev/rules.d/82-net-setup-link.rules
 
 RUN chmod +x /usr/bin/reload_mlx.sh; \
+  mkdir -p /var/opt/overlay-upper /var/opt/overlay-work; \
   systemctl enable acpid.service || true; \
   systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
+  systemctl enable var-opt.mount || true; \
   systemctl disable bfvcheck.service || true;
 # RUN systemctl enable mst || true
 
