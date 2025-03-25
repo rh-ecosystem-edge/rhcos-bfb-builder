@@ -1,0 +1,18 @@
+module sfc_controller 1.0;
+
+require {
+    type container_t;
+    type openvswitch_t;
+    type openvswitch_var_run_t;
+    type container_var_run_t;
+    class unix_stream_socket connectto;
+    class sock_file write;
+}
+
+allow container_t openvswitch_t:unix_stream_socket connectto;
+allow container_t container_var_run_t:unix_stream_socket connectto;
+allow container_t openvswitch_var_run_t:unix_stream_socket connectto;
+
+allow container_t openvswitch_t:sock_file write;
+allow container_t container_var_run_t:sock_file write;
+allow container_t openvswitch_var_run_t:sock_file write;

@@ -1,0 +1,12 @@
+2994c2994
+< #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
+---
+> //#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
+2996,2998c2996,2998
+< #else
+< 	.hw_reset	= sdhci_hw_reset,
+< #endif
+---
+> //#else
+> //	.hw_reset	= sdhci_hw_reset,
+> //#endif

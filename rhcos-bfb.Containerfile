@@ -1,6 +1,7 @@
 ARG D_BASE_IMAGE
 ARG D_FINAL_BASE_IMAGE
 ARG D_OS="rhcos4.17"
+ARG D_RHEL_VER="9.4"
 ARG D_ARCH="aarch64"
 ARG D_CONTAINER_VER="0"
 ARG D_DOCA_VERSION="2.10.0"
@@ -12,6 +13,7 @@ ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSIO
 FROM $D_BASE_IMAGE AS builder
 
 ARG D_OS
+ARG D_RHEL_VER
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
@@ -23,8 +25,7 @@ ARG D_OFED_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSIO
 ARG D_OFED_SRC_TYPE=""
 ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/SoC"
 
-COPY assets/create_repos.sh /tmp/create_repos.sh
-RUN bash /tmp/create_repos.sh
+RUN rm /etc/yum.repos.d/ubi.repo
 
 ARG D_OFED_SRC_ARCHIVE="MLNX_OFED_SRC-${D_OFED_SRC_TYPE}${D_OFED_VERSION}.tgz"
 ARG D_OFED_URL_PATH="${D_OFED_BASE_URL}/${D_OFED_SRC_ARCHIVE}"  # although argument name says URL, local `*.tgz` compressed files may also be used (intended for internal use)
@@ -75,6 +76,7 @@ COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/mlnx-o
 COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/ofed-scripts*.rpm /root/mofed-rpms
 COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/mlnx-tools*.rpm /root/mofed-rpms
 
+RUN rm /etc/yum.repos.d/ubi.repo
 RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 
 RUN dnf install -y autoconf automake gcc make rpm-build rpmdevtools rpmrebuild
@@ -194,9 +196,20 @@ RUN PACKAGE="mlx-bootctl" && \
   rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
   rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
 
+COPY patches/sdhci-of-dwcmshc-patch1.patch /build/rpmbuild/SOURCES
+
 RUN PACKAGE="sdhci-of-dwcmshc" && \
   export HOME=/build && \
   export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
+  mkdir /tmp/$PACKAGE && cd /tmp/$PACKAGE && \
+  rpm2cpio /build/rpmbuild/SRPMS/$PACKAGE*.src.rpm | cpio -idmv && \
+  rm -fv /build/rpmbuild/SRPMS/$PACKAGE*.src.rpm && \
+  tar -xf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
+  patch sdhci-of-dwcmshc-1.0/sdhci.c < /build/rpmbuild/SOURCES/sdhci-of-dwcmshc-patch1.patch && \
+  tar -czf /build/rpmbuild/SOURCES/$PACKAGE-1.0.tar.gz sdhci-of-dwcmshc-1.0 && \
+  rm -rf sdhci-of-dwcmshc-1.0 && \
+  mv $PACKAGE.spec /build/rpmbuild/SPECS && \
+  rpmbuild -bs /build/rpmbuild/SPECS/$PACKAGE.spec && \
   rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
   rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
   rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
@@ -297,15 +310,15 @@ RUN PACKAGE="knem" && \
 FROM ${D_FINAL_BASE_IMAGE} AS base
 
 ARG D_OS
+ARG D_RHEL_VER
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 
-COPY assets/create_repos.sh /tmp/create_repos.sh
-
-RUN bash /tmp/create_repos.sh
+RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
+  dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms
 
 RUN cat <<EOF > /etc/yum.repos.d/doca.repo
 [doca]
@@ -387,7 +400,6 @@ RUN dnf -y install \
   libvma \
   libvma-utils \
   # libxpmem \
-  meson \
   mft \
   mft-oem \
   mlnx-dpdk \
@@ -480,6 +492,7 @@ RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Kdoca-dms[^"]+') && \
 # Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
+COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
 
 RUN sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
@@ -488,7 +501,11 @@ RUN sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
 RUN cp /usr/share/doc/mlnx-ofa_kernel/vf-net-link-name.sh /etc/infiniband/vf-net-link-name.sh && \
   cp /usr/share/doc/mlnx-ofa_kernel/82-net-setup-link.rules /usr/lib/udev/rules.d/82-net-setup-link.rules && \
   echo "hugetlbfs:x:$(getent group hugetlbfs | cut -d: -f3):openvswitch" >> /etc/group && \
-  echo "L+ /opt/mellanox - - - - /usr/opt/mellanox" > /etc/tmpfiles.d/link-opt.conf
+  echo "L+ /opt/mellanox - - - - /usr/opt/mellanox" > /etc/tmpfiles.d/link-opt.conf && \
+  checkmodule -M -m -o /tmp/sfc_controller.mod /tmp/sfc_controller.te && \
+  semodule_package -o /tmp/sfc_controller.pp -m /tmp/sfc_controller.mod && \
+  semodule -i /tmp/sfc_controller.pp && \
+  rm -f /tmp/sfc_controller.te /tmp/sfc_controller.mod /tmp/sfc_controller.pp
 
 RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable acpid.service || true; \
