@@ -80,6 +80,22 @@ else
 fi
 
 
+echo "Building bfb/reboot.c..."
+if [ "$(uname -m)" = "aarch64" ]; then
+    gcc -o $PROJDIR/bfb/reboot $PROJDIR/bfb/reboot.c
+else
+    # aarch64-linux-gnu-gcc -o $PROJDIR/bfb/reboot $PROJDIR/bfb/reboot.c
+    # TODO: create a cross-compile envrionment for aarch64
+    echo "Error: Unsupported architecture!"
+    exit 1
+fi
+
+if [ ! -f $PROJDIR/bfb/reboot ]; then
+    echo "Error: bfb/reboot not found!"
+    exit 1
+fi
+
+
 rm -rf $WDIR/initramfs_mod
 mkdir $WDIR/initramfs_mod
 
@@ -95,6 +111,8 @@ zcat $WDIR/initramfs_mod/usr/lib/modules/*/vmlinuz > $kernel
 rm -rf $WDIR/initramfs_mod/usr/lib/modules/*/initramfs.img
 
 pushd $WDIR/initramfs_mod
+
+cp $PROJDIR/bfb/reboot usr/bin/reboot
 
 cp $PROJDIR/bfb/init.sh init
 cp $PROJDIR/bfb/shell.sh usr/bin/main.sh
@@ -112,7 +130,8 @@ chmod +x usr/bin/main.sh
 
 echo "Compressing rhcos-bfb-metal.aarch64.raw using $GZ..."
 $GZ -c -9 $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
-
+split -b 1G -d rhcos-bfb-metal.aarch64.raw.gz rhcos-bfb-metal.aarch64.raw.gz.part-
+rm -f rhcos-bfb-metal.aarch64.raw.gz
 
 echo "Compressing initramfs using $GZ..."
 find . | cpio -o -H newc | $GZ -c --fast > ${initramfs}_installer

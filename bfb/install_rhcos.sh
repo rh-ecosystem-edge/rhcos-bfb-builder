@@ -42,7 +42,8 @@ if [ ! -f /tmp/bf.cfg ]; then
   exec /bin/bash
 fi
 
-gzip -cd /rhcos-bfb-metal.aarch64.raw.gz | dd of=$device bs=1M oflag=sync status=progress 2>&1 | tee /dev/kmsg
+cat $(ls /rhcos-bfb-metal.aarch64.raw.gz.part-* | sort -V) | gzip -cd - | dd of=$device bs=1M oflag=sync status=progress 2>&1 | tee /dev/kmsg
+# gzip -cd /rhcos-bfb-metal.aarch64.raw.gz | dd of=$device bs=1M oflag=sync status=progress 2>&1 | tee /dev/kmsg
 sync
 
 echo "Finished writing Image to $device..." | tee /dev/kmsg
@@ -61,20 +62,21 @@ cp /tmp/bf.cfg /mnt/ignition/config.ign
 umount /mnt
 fi
 
-eho "Copied ignition to boot partition." | tee /dev/kmsg
+echo "Copied ignition to boot partition." | tee /dev/kmsg
 
 echo "===================================" | tee /dev/kmsg
 echo "  Installation finished.           " | tee /dev/kmsg
-echo "  Rebooting in 5 seconds...        " | tee /dev/kmsg
+echo "  Rebooting in 1 seconds...        " | tee /dev/kmsg
 echo "===================================" | tee /dev/kmsg
 
-sleep 5
+sleep 1
 
-while true; do
-    sleep 5
-    echo "rebooting" | tee /dev/kmsg
-    echo s > /proc/sysrq-trigger
-    echo u > /proc/sysrq-trigger
-    echo b > /proc/sysrq-trigger
-    sleep 10  # Prevent excessive looping in case reboot fails
-done
+/usr/bin/reboot
+
+# while true; do
+#     echo "rebooting" | tee /dev/kmsg
+#     echo s > /proc/sysrq-trigger
+#     echo u > /proc/sysrq-trigger
+#     echo b > /proc/sysrq-trigger
+#     sleep 1
+# done

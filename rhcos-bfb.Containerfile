@@ -325,10 +325,14 @@ COPY --from=doca-builder /build/rpmbuild/RPMS/${D_ARCH}/*.rpm /tmp/rpms
 WORKDIR /
 RUN rm opt && mkdir -p usr/opt && ln -s usr/opt opt
 
-RUN rm -f /tmp/rpms/mlnx-ofa_kernel-devel*.rpm /tmp/rpms/kmod-mlnx-ofa_kernel-debuginfo*.rpm /tmp/rpms/*-devel*.rpm && \
+RUN rm -f /tmp/rpms/mlnx-ofa_kernel-devel*.rpm \
+  /tmp/rpms/kmod-mlnx-ofa_kernel-debuginfo*.rpm \
+  /tmp/rpms/mlnx-ofa_kernel-debugsource*.rpm \
+  /tmp/rpms/mlnx-ofa_kernel-source*.rpm \
+  /tmp/rpms/*-devel*.rpm && \
   rpm -ivh --nodeps /tmp/rpms/*.rpm
 
-# RUN dnf remove -y openvswitch-selinux-extra-policy openvswitch* runc
+RUN dnf remove -y openvswitch-selinux-extra-policy openvswitch*
 
 WORKDIR /root
 
@@ -340,8 +344,9 @@ RUN dnf -y install \
   doca-comm-channel-admin \
   doca-dms \
   doca-flow-tune \
-  # doca-openvswitch \
-  # doca-openvswitch-ipsec \
+  doca-openvswitch \
+  doca-openvswitch-ipsec \
+  doca-openvswitch-selinux-policy \
   doca-pcc-counters \
   doca-sdk-aes-gcm \
   doca-sdk-apsh \
@@ -391,7 +396,7 @@ RUN dnf -y install \
   mlnx-libsnap \
   mlx-OpenIPMI \
   mlxbf-bfscripts \
-  mlxbf-bootctl \
+  mlnx-fw-updater-signed \
   ofed-scripts \
   opensm \
   opensm-libs \
@@ -408,6 +413,7 @@ RUN dnf -y install \
   ucx-rdmacm \
   ucx-xpmem \
   && dnf clean all
+  # && rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel
 # virtio-net-controller \
 
 
@@ -456,7 +462,7 @@ RUN dnf install -y \
   bf2-cec-fw-signed bf3-cec-fw-signed \
   python3-devel \
   && dnf clean all
-# python3-devel required for pathfix.py (create_bfb)
+  # python3-devel required for pathfix.py (create_bfb)
 
 ARG D_UBUNTU_BASEURL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/ubuntu22.04/arm64-dpu/"
 RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Ksfc-hbn[^"]+') && \
@@ -465,28 +471,34 @@ RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Ksfc-hbn[^"]+') && \
   tar --keep-directory-symlink -xf data.tar.zst -C / && \
   rm -f $PACKAGE
 
+RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Kdoca-dms[^"]+') && \
+  curl -O "${D_UBUNTU_BASEURL}/${PACKAGE}" && \
+  ar x $PACKAGE data.tar.zst && \
+  tar --keep-directory-symlink -xf data.tar.zst -C / && \
+  rm -f $PACKAGE
+
 # Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
-COPY assets/var-opt.mount /usr/lib/systemd/system
 
 RUN sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service
 
 RUN cp /usr/share/doc/mlnx-ofa_kernel/vf-net-link-name.sh /etc/infiniband/vf-net-link-name.sh && \
-  cp /usr/share/doc/mlnx-ofa_kernel/82-net-setup-link.rules /usr/lib/udev/rules.d/82-net-setup-link.rules
+  cp /usr/share/doc/mlnx-ofa_kernel/82-net-setup-link.rules /usr/lib/udev/rules.d/82-net-setup-link.rules && \
+  echo "hugetlbfs:x:$(getent group hugetlbfs | cut -d: -f3):openvswitch" >> /etc/group && \
+  echo "L+ /opt/mellanox - - - - /usr/opt/mellanox" > /etc/tmpfiles.d/link-opt.conf
 
 RUN chmod +x /usr/bin/reload_mlx.sh; \
-  mkdir -p /var/opt/overlay-upper /var/opt/overlay-work; \
   systemctl enable acpid.service || true; \
   systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
-  systemctl enable var-opt.mount || true; \
   systemctl disable bfvcheck.service || true;
 # RUN systemctl enable mst || true
+
 
 
 # RUN echo 'omit_drivers+=" mlx4_core mlx4_en mlx5_core mlxbf_gige.ko mlxfw "' >> /usr/lib/dracut/dracut.conf.d/50-mellanox-overrides.conf 
@@ -504,6 +516,7 @@ RUN dnf remove -y \
   dnf clean all -y && \
   rm -rf /var/cache/* /var/log/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \
   rm -f /etc/machine-id && \
+  rm -f /opt && \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
   update-pciids
 

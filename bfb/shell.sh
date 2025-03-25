@@ -1,6 +1,7 @@
 #!/bin/sh
 
-exec >/dev/console 2>&1
-export PS1='\u@\h \W# '
+export PS1='\u@debug:\W# '
+echo "starting shell" > /dev/kmsg
 
-exec /bin/bash --login
+exec setsid /bin/bash -i </dev/hvc0 >/dev/hvc0 2>&1
+
