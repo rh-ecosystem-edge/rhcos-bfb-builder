@@ -1,7 +1,7 @@
 ARG D_BASE_IMAGE
 ARG D_FINAL_BASE_IMAGE
 ARG D_OS="rhcos4.17"
-ARG D_RHEL_VER="9.4"
+# ARG D_RHEL_VER="9.4"
 ARG D_ARCH="aarch64"
 ARG D_CONTAINER_VER="0"
 ARG D_DOCA_VERSION="2.10.0"
@@ -13,7 +13,7 @@ ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSIO
 FROM $D_BASE_IMAGE AS builder
 
 ARG D_OS
-ARG D_RHEL_VER
+# ARG D_RHEL_VER
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
@@ -310,7 +310,7 @@ RUN PACKAGE="knem" && \
 FROM ${D_FINAL_BASE_IMAGE} AS base
 
 ARG D_OS
-ARG D_RHEL_VER
+# ARG D_RHEL_VER
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
@@ -455,8 +455,6 @@ RUN dnf install -y \
   mstflint \
   mft-autocomplete \
   mlnx-snap \
-  pciutils usbutils \ 
-  net-tools iproute-tc \
   mmc-utils \
   device-mapper \
   edac-utils \
@@ -464,17 +462,11 @@ RUN dnf install -y \
   efibootmgr \
   i2c-tools \ 
   ipmitool \ 
-  iproute-tc \
-  kexec-tools kmod \
-  jq \
-  mokutil \
-  nfs-utils \ 
-  nvme-cli nvmetcli\
+  ebtables-legacy iptables-legacy \
+  nvmetcli\
   bf2-bmc-fw-signed bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
   bf2-cec-fw-signed bf3-cec-fw-signed \
-  python3-devel \
   && dnf clean all
-  # python3-devel required for pathfix.py (create_bfb)
 
 ARG D_UBUNTU_BASEURL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/ubuntu22.04/arm64-dpu/"
 RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Ksfc-hbn[^"]+') && \

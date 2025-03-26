@@ -128,8 +128,8 @@ pushd $WDIR/initramfs_mod
 cp $PROJDIR/bfb/install_rhcos.sh usr/bin/main.sh
 chmod +x usr/bin/main.sh
 
-echo "Compressing rhcos-bfb-metal.aarch64.raw using $GZ..."
-$GZ -c -9 $PROJDIR/rhcos-bfb-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
+echo "Compressing rhcos-bfb_$RHCOS_VERSION-metal.aarch64.raw using $GZ..."
+$GZ -c -9 $PROJDIR/rhcos-bfb_$RHCOS_VERSION-metal.aarch64.raw > rhcos-bfb-metal.aarch64.raw.gz
 split -b 1G -d rhcos-bfb-metal.aarch64.raw.gz rhcos-bfb-metal.aarch64.raw.gz.part-
 rm -f rhcos-bfb-metal.aarch64.raw.gz
 

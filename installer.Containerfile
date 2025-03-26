@@ -6,14 +6,6 @@ COPY --from=rhcos_bfb /usr/lib/modules /usr/lib/modules
 
 # RUN rm -f /usr/lib/modules/*/initramfs.img
 
-RUN cat <<EOF > /etc/yum.repos.d/centos-stream.repo
-[centos-stream-baseos]
-name=CentOS Stream 9 - BaseOS
-baseurl=https://mirror.stream.centos.org/9-stream/BaseOS/\$basearch/os/
-gpgcheck=0
-enabled=1
-EOF
-
 WORKDIR /
 
 RUN microdnf install -y gzip efibootmgr kmod util-linux cpio && \

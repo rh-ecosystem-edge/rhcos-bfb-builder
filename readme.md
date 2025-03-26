@@ -28,31 +28,30 @@ export PULL_SECRET=<path to pull secret file>
 ```bash
 podman build -f rhcos-bfb.Containerfile \
 --authfile $PULL_SECRET \
---build-arg D_OS=rhcos4.17 \
+--build-arg D_OS=rhcos$RHCOS_VERSION \
 --build-arg D_ARCH=aarch64 \
 --build-arg D_KERNEL_VER=$KERNEL_VERSION \
+--build-arg D_DOCA_VERSION=2.9.1 \
 --build-arg D_OFED_VERSION=24.10-1.1.4.0 \
 --build-arg D_BASE_IMAGE=$BUILDER_IMAGE \
 --build-arg D_FINAL_BASE_IMAGE=$TARGET_IMAGE \
 --build-arg D_DOCA_DISTRO=rhel9.2 \
---tag rhcos-bfb:latest
+--tag "rhcos-bfb:$RHCOS_VERSION-latest"
 ```
 
 ### Creating disk boot images
 ```bash
-skopeo copy containers-storage:localhost/rhcos-bfb:latest oci-archive:rhcos-bfb.ociarchive
+skopeo copy containers-storage:localhost/rhcos-bfb:$RHCOS_VERSION-latest oci-archive:rhcos-bfb_$RHCOS_VERSION.ociarchive
 ```
 
-You can use `fedora:41` as it has the `osbuild-tools` package.
+You can use Fedora 41 as it has the `osbuild-tools` package.
 ```bash
-podman run --rm -it --privileged -v /root:/root fedora:41
-
 # In Fedora based system:
 sudo dnf install -y osbuild osbuild-tools osbuild-ostree podman jq xfsprogs
 sudo custom-coreos-disk-images/custom-coreos-disk-images.sh \
-  --ociarchive rhcos-bfb.ociarchive \
+  --ociarchive rhcos-bfb_$RHCOS_VERSION.ociarchive \
   --platforms metal \
-  --metal-image-size 4500 \
+  --metal-image-size 5000 \
   --extra-kargs "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 ignore_loglevel"
 ```
 
