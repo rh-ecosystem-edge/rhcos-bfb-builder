@@ -79,12 +79,11 @@ COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/mlnx-t
 RUN rm /etc/yum.repos.d/ubi.repo
 RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
 
-RUN dnf install -y autoconf automake gcc make rpm-build rpmdevtools rpmrebuild
+RUN dnf install -y autoconf automake gcc make rpm-build rpmdevtools rpmrebuild libtool
 
 RUN rpm -ivh --nodeps /root/mofed-rpms/*.rpm
 
 RUN mkdir -p /build/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-
 
 RUN echo ${D_SOC_BASE_URL}/SRPMS
 RUN wget -r -np -e robots=off --reject-regex '(\?C=|index\.html)' -A "*.rpm" -nv -nd -P /build/rpmbuild/SRPMS ${D_SOC_BASE_URL}/SRPMS
@@ -288,8 +287,6 @@ RUN PACKAGE="srp" && \
   rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
   rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
   rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN dnf install -y libtool
 
 RUN PACKAGE="xpmem" && \
   export HOME=/build && \
@@ -505,8 +502,10 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
-  systemctl disable bfvcheck.service || true;
-# RUN systemctl enable mst || true
+  systemctl disable bfvcheck.service || true; \
+  sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
+  # RUN systemctl enable mst || true
 
 
 
@@ -515,6 +514,8 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
 #   depmod -a $kver && \
 #   dracut -vf /usr/lib/modules/$kver/initramfs.img $kver
 
+# Restore /opt
+RUN rm /opt && ln -s /var/opt /opt
 
 # Reduce final size
 RUN dnf remove -y \
@@ -525,7 +526,6 @@ RUN dnf remove -y \
   dnf clean all -y && \
   rm -rf /var/cache/* /var/log/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \
   rm -f /etc/machine-id && \
-  rm -f /opt && \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
   update-pciids
 
