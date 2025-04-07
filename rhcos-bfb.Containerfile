@@ -1,7 +1,6 @@
 ARG D_BASE_IMAGE
 ARG D_FINAL_BASE_IMAGE
 ARG D_OS="rhcos4.17"
-# ARG D_RHEL_VER="9.4"
 ARG D_ARCH="aarch64"
 ARG D_CONTAINER_VER="0"
 ARG D_DOCA_VERSION="2.10.0"
@@ -13,7 +12,6 @@ ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSIO
 FROM $D_BASE_IMAGE AS builder
 
 ARG D_OS
-# ARG D_RHEL_VER
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
@@ -307,17 +305,20 @@ RUN PACKAGE="knem" && \
 FROM ${D_FINAL_BASE_IMAGE} AS base
 
 ARG D_OS
-# ARG D_RHEL_VER
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
+ARG D_UBUNTU_BASEURL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/ubuntu22.04/arm64-dpu/"
 
 RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
-  dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms
-
-RUN cat <<EOF > /etc/yum.repos.d/doca.repo
+  dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
+  dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
+  # EPEL is required for jsoncpp strongswan libunwind
+  dnf clean all; \
+  mkdir -p /tmp/rpms; \
+  cat <<EOF > /etc/yum.repos.d/doca.repo
 [doca]
 name=Nvidia DOCA repository
 baseurl=https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/${D_DOCA_DISTRO}/arm64-dpu/
@@ -325,26 +326,54 @@ gpgcheck=0
 enabled=1
 EOF
 
-RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && dnf clean all
-# EPEL is required for jsoncpp strongswan libunwind
-
-RUN mkdir -p /tmp/rpms
 COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/*.rpm /tmp/rpms
 COPY --from=doca-builder /build/rpmbuild/RPMS/${D_ARCH}/*.rpm /tmp/rpms
 
 WORKDIR /
 RUN rm opt && mkdir -p usr/opt && ln -s usr/opt opt
 
-RUN rm -f /tmp/rpms/mlnx-ofa_kernel-devel*.rpm \
+RUN \
+  # Setup /opt for package installations
+  rm opt && mkdir -p usr/opt && ln -s usr/opt opt; \
+  #
+  # Install kernel modules
+  rm -f /tmp/rpms/mlnx-ofa_kernel-devel*.rpm \
   /tmp/rpms/kmod-mlnx-ofa_kernel-debuginfo*.rpm \
   /tmp/rpms/mlnx-ofa_kernel-debugsource*.rpm \
   /tmp/rpms/mlnx-ofa_kernel-source*.rpm \
   /tmp/rpms/*-devel*.rpm && \
-  rpm -ivh --nodeps /tmp/rpms/*.rpm
-
-RUN dnf remove -y openvswitch-selinux-extra-policy openvswitch*
-
-WORKDIR /root
+  rpm -ivh --nodeps /tmp/rpms/*.rpm; \
+  #
+  # Remove default packages
+  dnf remove -y \
+  # Replace openvswitch with doca-openvswitch
+  openvswitch-selinux-extra-policy openvswitch* \
+  # Remove unused big packages
+  geolite2-city \
+  ose-azure-acr-image-credential-provider \
+  ose-aws-ecr-image-credential-provider \
+  ose-gcp-gcr-image-credential-provider; \
+  #
+  # Install doca-runtime meta packages without their dependencies
+  cd /tmp; \
+  dnf download doca-runtime doca-runtime-kernel doca-runtime-user bf-release && \
+  rpm -ivh --nodeps \
+  doca-runtime-kernel-${D_DOCA_VERSION}*.${D_ARCH}.rpm \
+  doca-runtime-user*.${D_ARCH}.rpm \
+  doca-runtime-${D_DOCA_VERSION}*.${D_ARCH}.rpm; \
+  ## doca-runtime-kernel and doca-devel-kernel are still tied to specific kernel, but we compiled these on our own, so we ignore the specific version dependency
+  ## doca-runtime-user requires it's own doca-openvswitch packages, and requires bf-release
+  #
+  # Install bf-release in a hacky way
+  mkdir /tmp/bf-release; \
+  rpm2cpio bf-release-*.aarch64.rpm | cpio -idm -D /tmp/bf-release; \
+  rm -rf /tmp/bf-release/var /tmp/bf-release/usr/lib/systemd /tmp/bf-release/usr/share /tmp/bf-release/etc/sysconfig \
+  /tmp/bf-release/etc/NetworkManager \
+  /tmp/bf-release/etc/crictl* /tmp/bf-release/etc/kubelet.d /tmp/bf-release/etc/cni; \
+  cp -rnv /tmp/bf-release/* /; \
+  echo "bf-bundle-${D_DOCA_VERSION}_${D_OS}" > /etc/mlnx-release; \
+  #
+  dnf clean all
 
 RUN dnf -y install \
   collectx-clxapi \
@@ -396,7 +425,6 @@ RUN dnf -y install \
   librdmacm-utils \
   libvma \
   libvma-utils \
-  # libxpmem \
   mft \
   mft-oem \
   mlnx-dpdk \
@@ -411,7 +439,6 @@ RUN dnf -y install \
   opensm-libs \
   opensm-static \
   perftest \
-  # python3-doca-openvswitch \
   rdma-core \
   spdk \
   srp_daemon \
@@ -421,32 +448,6 @@ RUN dnf -y install \
   ucx-knem \
   ucx-rdmacm \
   ucx-xpmem \
-  && dnf clean all
-  # && rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel
-# virtio-net-controller \
-
-
-RUN dnf download \
-  doca-runtime doca-runtime-kernel doca-runtime-user \
-  # doca-devel doca-devel-kernel doca-devel-user \
-  bf-release && \
-  rpm -ivh --nodeps \
-  doca-runtime-kernel-${D_DOCA_VERSION}*.${D_ARCH}.rpm \
-  doca-runtime-user*.${D_ARCH}.rpm \
-  doca-runtime-${D_DOCA_VERSION}*.${D_ARCH}.rpm
-# doca-runtime-kernel and doca-devel-kernel are still tied to specific kernel, but we compiled these on our own, so we ignore the specific version dependency
-# doca-runtime-user requires it's own doca-openvswitch packages, and requires bf-release
-
-RUN mkdir /tmp/bf-release; \
-  rpm2cpio bf-release-*.aarch64.rpm | cpio -idm -D /tmp/bf-release; \
-  rm -rf /tmp/bf-release/var /tmp/bf-release/usr/lib/systemd /tmp/bf-release/usr/share \
-  /tmp/bf-release/etc/NetworkManager \
-  /tmp/bf-release/etc/crictl* /tmp/bf-release/etc/kubelet.d /tmp/bf-release/etc/cni; \
-  cp -rnv /tmp/bf-release/* /; \
-  echo "bf-bundle-${D_DOCA_VERSION}_${D_OS}" > /etc/mlnx-release
-# Install bf-release in a hacky way
-
-RUN dnf install -y \
   acpid \
   bridge-utils \
   mstflint \
@@ -461,34 +462,40 @@ RUN dnf install -y \
   ipmitool \ 
   ebtables-legacy iptables-legacy \
   nvmetcli\
-  bf2-bmc-fw-signed bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
-  bf2-cec-fw-signed bf3-cec-fw-signed \
-  && dnf clean all
+  bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
+  bf3-cec-fw-signed \
+  && dnf clean all && \
+  rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel elfutils-libelf-devel
 
-ARG D_UBUNTU_BASEURL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/ubuntu22.04/arm64-dpu/"
-RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Ksfc-hbn[^"]+') && \
+RUN \
+  # Install packages from the ubuntu repo
+  #
+  PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Kdoca-dms[^"]+') && \
   curl -O "${D_UBUNTU_BASEURL}/${PACKAGE}" && \
   ar x $PACKAGE data.tar.zst && \
   tar --keep-directory-symlink -xf data.tar.zst -C / && \
   rm -f $PACKAGE
-
-RUN PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Kdoca-dms[^"]+') && \
-  curl -O "${D_UBUNTU_BASEURL}/${PACKAGE}" && \
-  ar x $PACKAGE data.tar.zst && \
-  tar --keep-directory-symlink -xf data.tar.zst -C / && \
-  rm -f $PACKAGE
+  #
+  # PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Ksfc-hbn[^"]+') && \
+  # curl -O "${D_UBUNTU_BASEURL}/${PACKAGE}" && \
+  # ar x $PACKAGE data.tar.zst && \
+  # tar --keep-directory-symlink -xf data.tar.zst -C / && \
+  # rm -f $PACKAGE; \
 
 # Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
 
-RUN sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
-  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
-  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service
-
-RUN cp /usr/share/doc/mlnx-ofa_kernel/vf-net-link-name.sh /etc/infiniband/vf-net-link-name.sh && \
+RUN \
+  # Copy OFED udev rules
+  cp /usr/share/doc/mlnx-ofa_kernel/vf-net-link-name.sh /etc/infiniband/vf-net-link-name.sh && \
   cp /usr/share/doc/mlnx-ofa_kernel/82-net-setup-link.rules /usr/lib/udev/rules.d/82-net-setup-link.rules && \
+  #
+  # Patch installed packages
+  sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
+  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
+  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service && \
   echo "hugetlbfs:x:$(getent group hugetlbfs | cut -d: -f3):openvswitch" >> /etc/group && \
   echo "L+ /opt/mellanox - - - - /usr/opt/mellanox" > /etc/tmpfiles.d/link-opt.conf && \
   checkmodule -M -m -o /tmp/sfc_controller.mod /tmp/sfc_controller.te && \
@@ -505,28 +512,15 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl disable bfvcheck.service || true; \
   sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
 
-  # RUN systemctl enable mst || true
-
-
-
 # RUN echo 'omit_drivers+=" mlx4_core mlx4_en mlx5_core mlxbf_gige.ko mlxfw "' >> /usr/lib/dracut/dracut.conf.d/50-mellanox-overrides.conf 
 # RUN set -x; kver=$(cd /usr/lib/modules && echo *); \
 #   depmod -a $kver && \
 #   dracut -vf /usr/lib/modules/$kver/initramfs.img $kver
 
-# Restore /opt
-RUN rm /opt && ln -s /var/opt /opt
-
-# Reduce final size
-RUN dnf remove -y \
-  geolite2-city \
-  ose-azure-acr-image-credential-provider \
-  ose-aws-ecr-image-credential-provider \
-  ose-gcp-gcr-image-credential-provider && \
+# Finalize the container image
+RUN rm /opt && ln -s /var/opt /opt; \
   dnf clean all -y && \
-  rm -rf /var/cache/* /var/log/* /etc/machine-id /etc/yum/vars/infra /etc/BUILDTIME /root/anaconda-post.log /root/*.cfg && \
-  rm -f /etc/machine-id && \
+  rm -rf /var/cache/* /var/log/* /etc/machine-id && \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
-  update-pciids
-
-RUN ostree container commit
+  update-pciids && \
+  ostree container commit
