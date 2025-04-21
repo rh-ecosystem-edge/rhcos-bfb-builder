@@ -34,16 +34,13 @@ ENV NVIDIA_NIC_DRIVER_PATH="${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_V
 
 WORKDIR /root
 
-RUN dnf install -y autoconf python3-devel ethtool automake pciutils libtool hostname dracut \
-  rpm-build make gcc \
-  perl jq iproute kmod procps udev
+RUN dnf install -y automake autoconf libtool perl
 
-
-RUN echo mkdir -p "$D_OFED_SRC_DOWNLOAD_PATH"
 RUN mkdir -p "$D_OFED_SRC_DOWNLOAD_PATH"
 
 WORKDIR ${D_OFED_SRC_DOWNLOAD_PATH}
-ADD ${D_OFED_URL_PATH} ${D_OFED_SRC_ARCHIVE}
+
+RUN wget --no-check-certificate -O ${D_OFED_SRC_ARCHIVE} ${D_OFED_URL_PATH}
 
 RUN if file ${D_OFED_SRC_ARCHIVE} | grep compressed; then \
   tar -xzf ${D_OFED_SRC_ARCHIVE}; \
@@ -51,254 +48,52 @@ RUN if file ${D_OFED_SRC_ARCHIVE} | grep compressed; then \
   mv ${D_OFED_SRC_ARCHIVE}/MLNX_OFED_SRC-${D_OFED_VERSION} . ; \
   fi
 
-
-RUN ls ${OFED_SRC_LOCAL_DIR}
 RUN set -x && \
-  ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro ${D_OS} --kernel ${D_KERNEL_VER} --kernel-sources /lib/modules/${D_KERNEL_VER}/build --kernel-only --build-only --without-iser --without-srp --without-isert --without-knem --without-xpmem --with-mlnx-tools --with-ofed-scripts --copy-ifnames-udev
-
-###################################
-
-FROM $D_BASE_IMAGE AS doca-builder
-
-ARG D_OS
-ARG D_KERNEL_VER
-ARG D_DOCA_VERSION
-ARG D_OFED_VERSION
-ARG D_ARCH
-ARG OFED_SRC_LOCAL_DIR
-ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/SoC"
-
-RUN mkdir -p /root/mofed-rpms
-COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/mlnx-ofa_kernel-devel*.rpm /root/mofed-rpms
-COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/mlnx-ofa_kernel-source*.rpm /root/mofed-rpms
-COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/ofed-scripts*.rpm /root/mofed-rpms
-COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/mlnx-tools*.rpm /root/mofed-rpms
-
-RUN rm /etc/yum.repos.d/ubi.repo
-RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-
-RUN dnf install -y autoconf automake gcc make rpm-build rpmdevtools rpmrebuild libtool
-
-RUN rpm -ivh --nodeps /root/mofed-rpms/*.rpm
+  ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro rhcos --kernel ${D_KERNEL_VER} --kernel-sources /lib/modules/${D_KERNEL_VER}/build \
+  --kernel-only --build-only \
+  --with-iser --with-srp --with-isert --with-knem --with-xpmem --fwctl \
+  --with-mlnx-tools --with-ofed-scripts --copy-ifnames-udev
 
 RUN mkdir -p /build/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
-RUN echo ${D_SOC_BASE_URL}/SRPMS
-RUN wget -r -np -e robots=off --reject-regex '(\?C=|index\.html)' -A "*.rpm" -nv -nd -P /build/rpmbuild/SRPMS ${D_SOC_BASE_URL}/SRPMS
+ENV HOME=/build
+ENV KVER=${D_KERNEL_VER}
+WORKDIR /root
 
-RUN PACKAGE="bluefield_edac" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
+RUN SRPMS=("bluefield_edac" "tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxbf-bootctl" "mlxbf-ptm" \
+  "mlxbf-pmc" "mlxbf-livefish" "mlxbf-gige" "mlx-trio" "ipmb-dev-int" "ipmb-host") && \
+  TARBALLS=("sdhci-of-dwcmshc" "mlxbf-pka" "pinctrl-mlxbf3") && \
+  wget -r -np -nd -A rpm -e robots=off "${D_SOC_BASE_URL}/SRPMS" --accept-regex="$(IFS='|'; echo "(${SRPMS[*]/%/.+\.rpm})")" && \
+  wget -r -np -nd -A tar.gz -e robots=off "${D_SOC_BASE_URL}/SOURCES" --accept-regex="$(IFS='|'; echo "(${TARBALLS[*]/%/.+\.tar\.gz})")"
 
-RUN PACKAGE="tmfifo" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="pwr-mlxbf" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="mlxbf-ptm" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="mlxbf-pmc" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-
-RUN PACKAGE="mlxbf-livefish" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="mlxbf-gige" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="mlx-trio" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="ipmb-dev-int" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="ipmb-host" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-
-RUN PACKAGE="i2c-mlxbf" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="gpio-mlxbf3" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="gpio-mlxbf2" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="gpio-mlxbf" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="mlx-bootctl" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
+RUN for package in *.src.rpm; do \
+    rpmbuild --rebuild $package --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}" || exit 1; \
+  done
 
 COPY patches/sdhci-of-dwcmshc-patch1.patch /build/rpmbuild/SOURCES
-
-RUN PACKAGE="sdhci-of-dwcmshc" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  mkdir /tmp/$PACKAGE && cd /tmp/$PACKAGE && \
-  rpm2cpio /build/rpmbuild/SRPMS/$PACKAGE*.src.rpm | cpio -idmv && \
-  rm -fv /build/rpmbuild/SRPMS/$PACKAGE*.src.rpm && \
-  tar -xf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
-  patch sdhci-of-dwcmshc-1.0/sdhci.c < /build/rpmbuild/SOURCES/sdhci-of-dwcmshc-patch1.patch && \
-  tar -czf /build/rpmbuild/SOURCES/$PACKAGE-1.0.tar.gz sdhci-of-dwcmshc-1.0 && \
-  rm -rf sdhci-of-dwcmshc-1.0 && \
-  mv $PACKAGE.spec /build/rpmbuild/SPECS && \
-  rpmbuild -bs /build/rpmbuild/SPECS/$PACKAGE.spec && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
 COPY patches/mlxbf-pka-patch1.patch /build/rpmbuild/SOURCES
-
-RUN PACKAGE="mlxbf-pka" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \  
-  mkdir /tmp/$PACKAGE && cd /tmp/$PACKAGE && \
-  rpm2cpio /build/rpmbuild/SRPMS/mlxbf-pka-1.0-0*.src.rpm | cpio -idmv && \
-  rm -f /build/rpmbuild/SRPMS/mlxbf-pka-1.0-0*.src.rpm && \
-  tar -xf mlxbf-pka-1.0.tar.gz && rm -f mlxbf-pka-1.0.tar.gz && \
-  patch mlxbf-pka-1.0/pka_drv_mlxbf.c < /build/rpmbuild/SOURCES/mlxbf-pka-patch1.patch && \
-  tar -czf /build/rpmbuild/SOURCES/mlxbf-pka-1.0.tar.gz mlxbf-pka-1.0 && \
-  rm -rf mlxbf-pka-1.0 && \
-  mv mlxbf-pka.spec /build/rpmbuild/SPECS && \
-  rpmbuild -bs /build/rpmbuild/SPECS/mlxbf-pka.spec && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
 COPY patches/pinctrl-mlxbf3-patch1.patch /build/rpmbuild/SOURCES
 
+RUN PACKAGE="sdhci-of-dwcmshc" && \
+  tar -xvf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
+  SRCDIR=$(basename "$PACKAGE"*) && \
+  patch $SRCDIR/sdhci.c < /build/rpmbuild/SOURCES/sdhci-of-dwcmshc-patch1.patch && \
+  tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
+  rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
+
+RUN PACKAGE="mlxbf-pka" && \
+  tar -xvf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
+  SRCDIR=$(basename "$PACKAGE"*) && \
+  patch $SRCDIR/pka_drv_mlxbf.c < /build/rpmbuild/SOURCES/mlxbf-pka-patch1.patch && \
+  tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
+  rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
+
 RUN PACKAGE="pinctrl-mlxbf3" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \  
-  mkdir /tmp/$PACKAGE && cd /tmp/$PACKAGE && \
-  rpm2cpio /build/rpmbuild/SRPMS/pinctrl-mlxbf3-1.0-0*.src.rpm | cpio -idmv && \
-  rm -f /build/rpmbuild/SRPMS/pinctrl-mlxbf3-1.0-0*.src.rpm && \
-  tar -xf pinctrl-mlxbf3-1.0.tar.gz && rm -f pinctrl-mlxbf3-1.0.tar.gz && \
+  tar -xvf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
+  SRCDIR=$(basename "$PACKAGE"*) && \
   patch -p1 < /build/rpmbuild/SOURCES/pinctrl-mlxbf3-patch1.patch && \
-  tar -czf /build/rpmbuild/SOURCES/pinctrl-mlxbf3-1.0.tar.gz pinctrl-mlxbf3-1.0 && \
-  rm -rf pinctrl-mlxbf3-1.0 && \
-  mv pinctrl-mlxbf3.spec /build/rpmbuild/SPECS && \
-  rpmbuild -bs /build/rpmbuild/SPECS/pinctrl-mlxbf3.spec && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-ARG D_OFED_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/MLNX_OFED"
-
-WORKDIR /tmp
-
-RUN PACKAGES=("fwctl" "iser" "isert" "knem" "xpmem" "srp") && \
-  TARFILE=MLNX_OFED_SRC-$D_OFED_VERSION.tgz && \
-  wget -P /tmp "$D_OFED_BASE_URL/$TARFILE" && \
-  tar --wildcards -xzf "$TARFILE" -C "/build/rpmbuild" $(for pkg in "${PACKAGES[@]}"; do echo "${TARFILE%.*}/SRPMS/${pkg}-*.src.rpm"; done) \
-  --exclude='SRPMS/xpmem-lib-*.src.rpm' --strip-components=1
-
-
-RUN PACKAGE="iser" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="isert" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="fwctl" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="srp" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-*.aarch64.rpm
-
-RUN PACKAGE="xpmem" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-modules-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-modules-*.aarch64.rpm
-
-RUN PACKAGE="knem" && \
-  export HOME=/build && \
-  export KVER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' kernel-devel)" && \
-  rpmbuild --rebuild --define "KVERSION $KVER" --define "debug_package %{nil}" /build/rpmbuild/SRPMS/$PACKAGE-*.src.rpm && \
-  rpmrebuild -p --change-spec-preamble "sed -e \"s/^Name:.*/Name: kmod-$PACKAGE/\"" /build/rpmbuild/RPMS/aarch64/$PACKAGE-modules-*.aarch64.rpm && \
-  rm /build/rpmbuild/RPMS/aarch64/$PACKAGE-modules-*.aarch64.rpm
+  tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
+  rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
 
 ######################################################################
 
@@ -327,10 +122,9 @@ enabled=1
 EOF
 
 COPY --from=builder ${OFED_SRC_LOCAL_DIR}/RPMS/redhat-release-*/${D_ARCH}/*.rpm /tmp/rpms
-COPY --from=doca-builder /build/rpmbuild/RPMS/${D_ARCH}/*.rpm /tmp/rpms
+COPY --from=builder /build/rpmbuild/RPMS/${D_ARCH}/*.rpm /tmp/rpms
 
 WORKDIR /
-RUN rm opt && mkdir -p usr/opt && ln -s usr/opt opt
 
 RUN \
   # Setup /opt for package installations
@@ -341,7 +135,9 @@ RUN \
   /tmp/rpms/kmod-mlnx-ofa_kernel-debuginfo*.rpm \
   /tmp/rpms/mlnx-ofa_kernel-debugsource*.rpm \
   /tmp/rpms/mlnx-ofa_kernel-source*.rpm \
-  /tmp/rpms/*-devel*.rpm && \
+  /tmp/rpms/*-devel*.rpm \
+  /tmp/rpms/*-debugsource*.rpm \
+  /tmp/rpms/*-debuginfo*.rpm && \
   rpm -ivh --nodeps /tmp/rpms/*.rpm; \
   #
   # Remove default packages
