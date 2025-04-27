@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 export PROJDIR=$(realpath $(dirname $0))
 WDIR=workspace
 mkdir -p $WDIR
@@ -66,7 +66,7 @@ buildbfb() {
 }
 
 
-podman build -f installer.Containerfile --tag bfb-installer:latest
+podman build -f installer.Containerfile --build-arg RHCOS_VERSION=$RHCOS_VERSION --tag bfb-installer:latest
 
 rm -rf $bootimages
 echo "Extracting Mellanox BFB bootimages..."
@@ -105,7 +105,11 @@ podman export $(podman create localhost/bfb-installer:latest) | tar -C $WDIR/ini
 
 rm -f $initramfs
 
-zcat $WDIR/initramfs_mod/usr/lib/modules/*/vmlinuz > $kernel
+if file "$WDIR/initramfs_mod/usr/lib/modules/*/vmlinuz" | grep -q 'gzip'; then
+  zcat $WDIR/initramfs_mod/usr/lib/modules/*/vmlinuz > $kernel
+else
+  cp $WDIR/initramfs_mod/usr/lib/modules/*/vmlinuz $kernel
+fi
 
 # cp $WDIR/initramfs_mod/usr/lib/modules/*/initramfs.img $WDIR/initramfs.img
 rm -rf $WDIR/initramfs_mod/usr/lib/modules/*/initramfs.img
@@ -115,6 +119,7 @@ pushd $WDIR/initramfs_mod
 cp $PROJDIR/bfb/reboot usr/bin/reboot
 
 cp $PROJDIR/bfb/init.sh init
+
 cp $PROJDIR/bfb/shell.sh usr/bin/main.sh
 chmod +x init
 chmod +x usr/bin/main.sh

@@ -1,4 +1,5 @@
-FROM rhcos-bfb:latest as rhcos_bfb
+ARG RHCOS_VERSION
+FROM rhcos-bfb:${RHCOS_VERSION}-latest as rhcos_bfb
 
 FROM registry.access.redhat.com/ubi9-minimal
 
