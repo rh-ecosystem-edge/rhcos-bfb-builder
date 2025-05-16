@@ -368,6 +368,8 @@ spec:
       params:
       - name: image-url
         value: $(tasks.build-image-index.results.IMAGE_URL)
+      - name: artifact-type
+        value: application
       runAfter:
       - build-image-index
       taskRef:
@@ -378,8 +380,6 @@ spec:
           value: quay.io/konflux-ci/tekton-catalog/task-ecosystem-cert-preflight-checks:0.2@sha256:dea8d9b4bec3e99d612d799798acf132df48276164b5193ea68f9f3c25ae425b
         - name: kind
           value: task
-        - name: artifact-type
-          value: application
         resolver: bundles
       when:
       - input: $(params.skip-checks)
