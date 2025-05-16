@@ -18,6 +18,10 @@ metadata:
   name: rhcos-bfb-builder-e9f5e-on-pull-request
   namespace: rh-ecosystem-tenant
 spec:
+  timeouts:
+    pipeline: "6h"
+    tasks: "3h"
+    finally: "3h"
   params:
   - name: git-url
     value: '{{source_url}}'
@@ -29,9 +33,11 @@ spec:
     value: 5d
   - name: build-platforms
     value:
-    - linux/x86_64
+    - linux/arm64
   - name: dockerfile
     value: rhcos-bfb.Containerfile
+  - name: build-args-file
+    value: argfile.conf
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
@@ -212,6 +218,7 @@ spec:
           value:
           - $(params.build-platforms)
       name: build-images
+      timeout: 3h
       params:
       - name: IMAGE
         value: $(params.output-image)
