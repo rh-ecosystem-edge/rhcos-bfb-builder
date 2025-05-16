@@ -1,15 +1,15 @@
-ARG D_BASE_IMAGE
-ARG D_FINAL_BASE_IMAGE
-ARG D_OS="rhcos4.17"
-ARG D_ARCH="aarch64"
-ARG D_CONTAINER_VER="0"
-ARG D_DOCA_VERSION="2.10.0"
-ARG D_OFED_VERSION="25.01-0.6.0.0"
-ARG D_KERNEL_VER="5.14.0-427.50.1.el9_4.${D_ARCH}"
-ARG D_OFED_SRC_DOWNLOAD_PATH="/run/mellanox/src"
-ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSION}
+ARG BUILDER_IMAGE
+ARG TARGET_IMAGE
+ARG D_OS
+ARG D_ARCH
+ARG D_CONTAINER_VER
+ARG D_DOCA_VERSION
+ARG D_OFED_VERSION
+ARG D_KERNEL_VER
+ARG D_OFED_SRC_DOWNLOAD_PATH
+ARG OFED_SRC_LOCAL_DIR
 
-FROM $D_BASE_IMAGE AS builder
+FROM ${BUILDER_IMAGE} AS builder
 
 ARG D_OS
 ARG D_KERNEL_VER
@@ -24,13 +24,15 @@ ARG D_OFED_SRC_TYPE=""
 ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/SoC"
 
 RUN rm /etc/yum.repos.d/ubi.repo
-
+RUN KVER=$(ls /usr/lib/modules | head -n1) && \
+    echo "D_KERNEL_VER=$KVER" >> /kernelver.env && \
+    echo "KVER=$KVER" >> /kernelver.env  
 ARG D_OFED_SRC_ARCHIVE="MLNX_OFED_SRC-${D_OFED_SRC_TYPE}${D_OFED_VERSION}.tgz"
 ARG D_OFED_URL_PATH="${D_OFED_BASE_URL}/${D_OFED_SRC_ARCHIVE}"  # although argument name says URL, local `*.tgz` compressed files may also be used (intended for internal use)
 
 ENV NVIDIA_NIC_DRIVER_VER=${D_OFED_VERSION}
 ENV NVIDIA_NIC_CONTAINER_VER=${D_CONTAINER_VER}
-ENV NVIDIA_NIC_DRIVER_PATH="${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSION}"
+
 
 WORKDIR /root
 
@@ -49,7 +51,8 @@ RUN if file ${D_OFED_SRC_ARCHIVE} | grep compressed; then \
   fi
 
 RUN set -x && \
-  ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro rhcos --kernel ${D_KERNEL_VER} --kernel-sources /lib/modules/${D_KERNEL_VER}/build \
+  source /kernelver.env && \
+  perl -d ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro rhcos --kernel ${D_KERNEL_VER} --kernel-sources /lib/modules/${D_KERNEL_VER}/build \
   --kernel-only --build-only \
   --with-iser --with-srp --with-isert --with-knem --with-xpmem --fwctl \
   --with-mlnx-tools --with-ofed-scripts --copy-ifnames-udev
@@ -57,7 +60,7 @@ RUN set -x && \
 RUN mkdir -p /build/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
 ENV HOME=/build
-ENV KVER=${D_KERNEL_VER}
+
 WORKDIR /root
 
 RUN SRPMS=("bluefield_edac" "tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxbf-bootctl" "mlxbf-ptm" \
@@ -66,7 +69,8 @@ RUN SRPMS=("bluefield_edac" "tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxb
   wget -r -np -nd -A rpm -e robots=off "${D_SOC_BASE_URL}/SRPMS" --accept-regex="$(IFS='|'; echo "(${SRPMS[*]/%/.+\.rpm})")" && \
   wget -r -np -nd -A tar.gz -e robots=off "${D_SOC_BASE_URL}/SOURCES" --accept-regex="$(IFS='|'; echo "(${TARBALLS[*]/%/.+\.tar\.gz})")"
 
-RUN for package in *.src.rpm; do \
+RUN source /kernelver.env && \
+    for package in *.src.rpm; do \
     rpmbuild --rebuild $package --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}" || exit 1; \
   done
 
@@ -74,22 +78,25 @@ COPY patches/sdhci-of-dwcmshc-patch1.patch /build/rpmbuild/SOURCES
 COPY patches/mlxbf-pka-patch1.patch /build/rpmbuild/SOURCES
 COPY patches/pinctrl-mlxbf3-patch1.patch /build/rpmbuild/SOURCES
 
-RUN PACKAGE="sdhci-of-dwcmshc" && \
-  tar -xvf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
+RUN source /kernelver.env && \
+  PACKAGE="sdhci-of-dwcmshc" && \
+  tar -xvf $PACKAGE-*.tar.gz -o && rm -f $PACKAGE-*.tar.gz && \
   SRCDIR=$(basename "$PACKAGE"*) && \
   patch $SRCDIR/sdhci.c < /build/rpmbuild/SOURCES/sdhci-of-dwcmshc-patch1.patch && \
   tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
   rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
 
-RUN PACKAGE="mlxbf-pka" && \
-  tar -xvf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
+RUN source /kernelver.env && \
+  PACKAGE="mlxbf-pka" && \
+  tar -xvf $PACKAGE-*.tar.gz -o && rm -f $PACKAGE-*.tar.gz && \
   SRCDIR=$(basename "$PACKAGE"*) && \
   patch $SRCDIR/pka_drv_mlxbf.c < /build/rpmbuild/SOURCES/mlxbf-pka-patch1.patch && \
   tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
   rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
 
-RUN PACKAGE="pinctrl-mlxbf3" && \
-  tar -xvf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
+RUN source /kernelver.env && \
+  PACKAGE="pinctrl-mlxbf3" && \
+  tar -xvf $PACKAGE-*.tar.gz -o && rm -f $PACKAGE-*.tar.gz && \
   SRCDIR=$(basename "$PACKAGE"*) && \
   patch -p1 < /build/rpmbuild/SOURCES/pinctrl-mlxbf3-patch1.patch && \
   tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
@@ -97,7 +104,7 @@ RUN PACKAGE="pinctrl-mlxbf3" && \
 
 ######################################################################
 
-FROM ${D_FINAL_BASE_IMAGE} AS base
+FROM ${TARGET_IMAGE} AS base
 
 ARG D_OS
 ARG D_KERNEL_VER
@@ -320,3 +327,4 @@ RUN rm /opt && ln -s /var/opt /opt; \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
   update-pciids && \
   ostree container commit
+
