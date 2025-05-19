@@ -1,5 +1,6 @@
 ARG BUILDER_IMAGE
 ARG TARGET_IMAGE
+ARG RHCOS_VERSION
 ARG D_OS
 ARG D_ARCH
 ARG D_CONTAINER_VER
@@ -108,6 +109,7 @@ FROM ${TARGET_IMAGE} AS base
 
 ARG D_OS
 ARG D_KERNEL_VER
+ARG RHCOS_VERSION
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
 ARG D_ARCH
@@ -328,3 +330,4 @@ RUN rm /opt && ln -s /var/opt /opt; \
   update-pciids && \
   ostree container commit
 
+LABEL "rhcos.version"="${RHCOS_VERSION}"
