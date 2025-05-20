@@ -134,7 +134,7 @@ spec:
       default: aarch64
     - name: rhcos-version
       type: string
-      default: ""
+      default: 4.19.0-ec.4 
     results:
     - description: ""
       name: IMAGE_URL
