@@ -126,6 +126,15 @@ spec:
         set of values is determined by the configuration of the multi-platform-controller.
       name: build-platforms
       type: array
+    - name: remote-registry
+      default: quay.io/openshift-release-dev/ocp-release
+      type: string
+    - name: arch
+      type: string
+      default: aarch64
+    - name: rhcos-version
+      type: string
+      default: ""
     results:
     - description: ""
       name: IMAGE_URL
@@ -143,11 +152,11 @@ spec:
     - name: get-oc-versions
       params:
       - name: rhcos_version
-        value: $(params.rhcos_version)
+        value: $(params.rhcos-version)
       - name: arch
         value: $(params.arch)
       - name: remote_registry
-        value: $(params.remote_registry)
+        value: $(params.remote-registry)
       taskRef:
         params:
         - name: name
@@ -157,6 +166,8 @@ spec:
         - name: kind
           value: task
         resolver: bundles
+      runAfter:
+        - prefetch-dependencies 
     - name: init
       params:
       - name: image-url
