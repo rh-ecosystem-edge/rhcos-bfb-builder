@@ -140,6 +140,23 @@ spec:
       name: CHAINS-GIT_COMMIT
       value: $(tasks.clone-repository.results.commit)
     tasks:
+    - name: get-images-from-version
+      params:
+      - name: rhcos_version
+        value: $(params.rhcos_version)
+      - name: arch
+        value: $(params.arch)
+      - name: remote_registry
+        value: $(params.remote_registry)
+      taskRef:
+        params:
+        - name: name
+          value: get-oc-versions
+        - name: bundle
+          value: quay.io/ebelarte/konflux-ci/oc-get-versions@sha256:bc1305530773853570657a72cfe68a5fb06e5ba58f0efcd16e6f55667bc3c06d
+        - name: kind
+          value: task
+        resolver: bundles
     - name: init
       params:
       - name: image-url
