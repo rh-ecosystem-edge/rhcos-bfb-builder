@@ -153,7 +153,7 @@ spec:
         - name: name
           value: get-oc-versions
         - name: bundle
-          value: pull quay.io/ebelarte/konflux-ci/oc-get-versions:0.2@sha256:12987290bfc14ea98e5c960c7722235f765a9ce26a7eaeace4620977147590f3 
+          value: pull quay.io/ebelarte/konflux-ci/oc-get-versions@sha256:12987290bfc14ea98e5c960c7722235f765a9ce26a7eaeace4620977147590f3 
         - name: kind
           value: task
         resolver: bundles
