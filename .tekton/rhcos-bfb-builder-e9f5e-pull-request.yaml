@@ -151,7 +151,7 @@ spec:
       taskRef:
         params:
         - name: name
-          value: get-oc-versions
+          value: run-oc-cli 
         - name: bundle
           value: quay.io/ebelarte/konflux-ci/oc-get-versions@sha256:bc1305530773853570657a72cfe68a5fb06e5ba58f0efcd16e6f55667bc3c06d
         - name: kind
