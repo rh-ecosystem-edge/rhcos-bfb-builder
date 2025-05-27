@@ -13,11 +13,12 @@ git clone --recursive https://github.com/Okoyl/rhcos-bfb.git
 ### Build the RHCOS image
 First use an openshift cluster to check the release image for the RHCOS version you want to build.
 ```bash
-export RHCOS_VERSION="4.19.0-ec.3"
-export KERNEL_VERSION="5.14.0-570.el9.aarch64"
+export RHCOS_VERSION="4.19.0-ec.4"
 
 export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
+
+export KERNEL_VERSION=$(podman run --authfile $PULL_SECRET -it --rm $TARGET_IMAGE ls /usr/lib/modules | strings)
 ```
 
 Make sure you export PULL_SECRET, you can obtain it from console.redhat.com.
@@ -44,15 +45,14 @@ podman build -f rhcos-bfb.Containerfile \
 skopeo copy containers-storage:localhost/rhcos-bfb:$RHCOS_VERSION-latest oci-archive:rhcos-bfb_$RHCOS_VERSION.ociarchive
 ```
 
-You can use Fedora 41 as it has the `osbuild-tools` package.
+You can follow the instructions at [custom-coreos-disk-images](/custom-coreos-disk-images/README.md) to generate the live artifacts.
 ```bash
 # In Fedora based system:
 sudo dnf install -y osbuild osbuild-tools osbuild-ostree podman jq xfsprogs
 sudo custom-coreos-disk-images/custom-coreos-disk-images.sh \
   --ociarchive rhcos-bfb_$RHCOS_VERSION.ociarchive \
-  --platforms metal \
-  --metal-image-size 5000 \
-  --extra-kargs "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 ignore_loglevel"
+  --platforms live \
+  --metal-image-size 5000
 ```
 
 ### Creating a BFB image
