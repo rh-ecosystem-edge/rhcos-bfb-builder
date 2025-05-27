@@ -6,15 +6,6 @@ if [ -b /dev/nvme0n1 ]; then
 fi
 device=${device:-"$default_device"}
 
-boot_device=$(findmnt -n -o SOURCE /boot || findmnt -n -o SOURCE /)
-if [[ "$boot_device" =~ ^$device ]]; then
-  echo "System booted from $device, exiting."
-  systemctl disable install-rhcos.service
-  rm -f /usr/lib/systemd/system/install-rhcos.service
-  rm -f /usr/bin/install-rhcos.sh
-  exit 0
-fi
-
 boot_fifo_path="/sys/bus/platform/devices/MLNXBF04:00/bootfifo"
 if [ -e "${boot_fifo_path}" ]; then
   cfg_file=$(mktemp)
@@ -36,6 +27,13 @@ if [ -e "${boot_fifo_path}" ]; then
   fi
   rm -f $cfg_file
 fi
+
+# multiline echo for the ignition file
+if [ ! -f /tmp/bf.ign ]; then
+  echo "INFO: Creating ignition file" | tee /dev/kmsg
+  echo '{"ignition": {"version": "3.4.0"}}' > /tmp/bf.ign
+fi
+
 
 dd if=/dev/zero of=$device bs=1M count=1 status=progress
 

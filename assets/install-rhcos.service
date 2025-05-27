@@ -1,6 +1,7 @@
 [Unit]
 Description=Install Red Hat CoreOS
 After=multi-user.target
+ConditionKernelCommandLine=initrd=initramfs
 
 [Service]
 Type=oneshot

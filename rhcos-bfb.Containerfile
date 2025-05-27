@@ -307,7 +307,6 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
   systemctl disable bfvcheck.service || true; \
-  systemctl enable install-rhcos.service || true; \
   sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config; \
   echo 'OVS_USER_ID="root:root"' >> /etc/sysconfig/openvswitch
 

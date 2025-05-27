@@ -44,7 +44,7 @@ buildbfb() {
     BFB_FILENAME="${ARG_NAME}_${DATETIME}.bfb"
 
     printf "console=ttyAMA1 console=hvc0 console=ttyAMA0 earlycon=pl011,0x01000000 earlycon=pl011,0x01800000 initrd=initramfs" > "$boot_args"
-    printf "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 initrd=initramfs $KERNEL_DBG_ARGS" > "$boot_args2"
+    printf "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 initrd=initramfs systemd.wants=install-rhcos.service $KERNEL_DBG_ARGS" > "$boot_args2"
 
     printf "VenHw(F019E406-8C9C-11E5-8797-001ACA00BFC4)/Image" > "$boot_path"
     printf "Linux from rshim" > "$boot_desc"
