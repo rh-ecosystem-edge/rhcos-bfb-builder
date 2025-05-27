@@ -28,7 +28,6 @@ if [ -e "${boot_fifo_path}" ]; then
   rm -f $cfg_file
 fi
 
-# multiline echo for the ignition file
 if [ ! -f /tmp/bf.ign ]; then
   echo "INFO: Creating ignition file" | tee /dev/kmsg
   echo '{"ignition": {"version": "3.4.0"}}' > /tmp/bf.ign
