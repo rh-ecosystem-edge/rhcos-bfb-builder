@@ -7,23 +7,34 @@ Podman and qemu-user-static are required to build the RHCOS image on a non-aarch
 ### Clone the project
 The project contains Mellanox's bfscripts as a git submoudle, so be sure to clone it as well:
 ```bash
-git clone --recursive https://github.com/Okoyl/rhcos-bfb.git
+git clone --recursive https://github.com/rh-ecosystem-edge/rhcos-bfb-builder.git
 ```
 
 ### Build the RHCOS image
 First use an openshift cluster to check the release image for the RHCOS version you want to build.
 ```bash
-export RHCOS_VERSION="4.19.0-ec.4"
+export RHCOS_VERSION="4.19.0-rc.4"
 
 export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 
 export KERNEL_VERSION=$(podman run --authfile $PULL_SECRET -it --rm $TARGET_IMAGE ls /usr/lib/modules | strings)
+
+if [ -z "$KERNEL_VERSION" ]; then
+  echo "ERROR: Failed to extract kernel version from target image"
+fi
 ```
 
 Make sure you export PULL_SECRET, you can obtain it from console.redhat.com.
 ```bash
 export PULL_SECRET=<path to pull secret file>
+```
+
+Set Nvidia DPU stack versions:
+```bash
+export OFED_VERSION="24.10-1.1.4.0"
+export DOCA_VERSION="2.9.1"
+export DOCA_DISTRO="rhel9.2"
 ```
 
 ```bash
@@ -32,11 +43,11 @@ podman build -f rhcos-bfb.Containerfile \
 --build-arg D_OS=rhcos$RHCOS_VERSION \
 --build-arg D_ARCH=aarch64 \
 --build-arg D_KERNEL_VER=$KERNEL_VERSION \
---build-arg D_DOCA_VERSION=2.9.1 \
---build-arg D_OFED_VERSION=24.10-1.1.4.0 \
+--build-arg D_DOCA_VERSION=$DOCA_VERSION \
+--build-arg D_OFED_VERSION=$OFED_VERSION \
 --build-arg D_BASE_IMAGE=$BUILDER_IMAGE \
 --build-arg D_FINAL_BASE_IMAGE=$TARGET_IMAGE \
---build-arg D_DOCA_DISTRO=rhel9.2 \
+--build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
 --tag "rhcos-bfb:$RHCOS_VERSION-latest"
 ```
 
