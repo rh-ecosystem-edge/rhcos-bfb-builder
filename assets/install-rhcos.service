@@ -1,0 +1,19 @@
+[Unit]
+Description=Install Red Hat CoreOS
+After=multi-user.target
+ConditionKernelCommandLine=initrd=initramfs
+SuccessExitStatus=0
+SuccessAction=reboot-force
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/install-rhcos.sh
+RemainAfterExit=yes
+TimeoutSec=0
+StandardInput=null
+StandardOutput=journal+console
+StandardError=journal+console
+TTYPath=/dev/hvc0
+
+[Install]
+WantedBy=multi-user.target

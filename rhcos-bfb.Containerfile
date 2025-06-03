@@ -35,8 +35,6 @@ ENV NVIDIA_NIC_DRIVER_VER=${D_OFED_VERSION}
 ENV NVIDIA_NIC_CONTAINER_VER=${D_CONTAINER_VER}
 
 
-WORKDIR /root
-
 RUN dnf install -y automake autoconf libtool perl
 
 RUN mkdir -p "$D_OFED_SRC_DOWNLOAD_PATH"
@@ -291,6 +289,8 @@ RUN \
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
+COPY assets/install-rhcos.sh /usr/bin/install-rhcos.sh
+COPY assets/install-rhcos.service /usr/lib/systemd/system/install-rhcos.service
 
 RUN \
   # Copy OFED udev rules
@@ -309,13 +309,15 @@ RUN \
   rm -f /tmp/sfc_controller.te /tmp/sfc_controller.mod /tmp/sfc_controller.pp
 
 RUN chmod +x /usr/bin/reload_mlx.sh; \
+  chmod +x /usr/bin/install-rhcos.sh; \
   systemctl enable acpid.service || true; \
   systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
   systemctl disable bfvcheck.service || true; \
-  sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+  sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config; \
+  echo 'OVS_USER_ID="root:root"' >> /etc/sysconfig/openvswitch
 
 # RUN echo 'omit_drivers+=" mlx4_core mlx4_en mlx5_core mlxbf_gige.ko mlxfw "' >> /usr/lib/dracut/dracut.conf.d/50-mellanox-overrides.conf 
 # RUN set -x; kver=$(cd /usr/lib/modules && echo *); \
@@ -331,3 +333,7 @@ RUN rm /opt && ln -s /var/opt /opt; \
   ostree container commit
 
 LABEL "rhcos.version"="${RHCOS_VERSION}"
+LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
+LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
+LABEL "rhcos.ofed.version"="${D_OFED_VERSION}"
+
