@@ -40,7 +40,6 @@ export DOCA_DISTRO="rhel9.4"
 ```bash
 podman build -f rhcos-bfb.Containerfile \
 --authfile $PULL_SECRET \
---build-arg D_OS=rhcos$RHCOS_VERSION \
 --build-arg D_ARCH=aarch64 \
 --build-arg D_KERNEL_VER=$KERNEL_VERSION \
 --build-arg D_DOCA_VERSION=$DOCA_VERSION \

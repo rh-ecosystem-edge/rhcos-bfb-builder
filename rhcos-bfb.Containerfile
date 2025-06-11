@@ -205,7 +205,7 @@ RUN dnf -y install \
   doca-socket-relay \
   doca-sosreport \
   dpa-stats \
-  dpaeumgmt \
+  # dpaeumgmt \
   dpcp  \
   flexio-sdk \
   ibacm \
