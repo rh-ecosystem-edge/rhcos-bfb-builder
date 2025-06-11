@@ -167,7 +167,7 @@ RUN \
   /tmp/bf-release/etc/NetworkManager \
   /tmp/bf-release/etc/crictl* /tmp/bf-release/etc/kubelet.d /tmp/bf-release/etc/cni; \
   cp -rnv /tmp/bf-release/* /; \
-  echo "bf-bundle-${D_DOCA_VERSION}_rhcos${RHCOS_VERSION}}" > /etc/mlnx-release; \
+  echo "bf-bundle-${D_DOCA_VERSION}_rhcos${RHCOS_VERSION}" > /etc/mlnx-release; \
   #
   dnf clean all
 
