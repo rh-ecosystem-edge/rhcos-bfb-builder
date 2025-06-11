@@ -5,13 +5,11 @@ ARG D_ARCH
 ARG D_CONTAINER_VER=0
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
-ARG D_KERNEL_VER
 ARG D_OFED_SRC_DOWNLOAD_PATH="/run/mellanox/src"
 ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSION}
 
 FROM ${BUILDER_IMAGE} AS builder
 
-ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
 ARG D_CONTAINER_VER
@@ -25,7 +23,6 @@ ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION
 
 RUN rm /etc/yum.repos.d/ubi.repo
 RUN KVER=$(ls /usr/lib/modules | head -n1) && \
-    echo "D_KERNEL_VER=$KVER" >> /kernelver.env && \
     echo "KVER=$KVER" >> /kernelver.env  
 ARG D_OFED_SRC_ARCHIVE="MLNX_OFED_SRC-${D_OFED_SRC_TYPE}${D_OFED_VERSION}.tgz"
 ARG D_OFED_URL_PATH="${D_OFED_BASE_URL}/${D_OFED_SRC_ARCHIVE}"  # although argument name says URL, local `*.tgz` compressed files may also be used (intended for internal use)
@@ -50,7 +47,7 @@ RUN if file ${D_OFED_SRC_ARCHIVE} | grep compressed; then \
 
 RUN set -x && \
   source /kernelver.env && \
-  perl ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro rhel --kernel ${D_KERNEL_VER} --kernel-sources /lib/modules/${D_KERNEL_VER}/build \
+  perl ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro rhel --kernel ${KVER} --kernel-sources /lib/modules/${KVER}/build \
   --kernel-only --build-only \
   --with-iser --with-srp --with-isert --with-knem --with-xpmem --fwctl \
   --with-mlnx-tools --with-ofed-scripts --copy-ifnames-udev
@@ -61,9 +58,8 @@ ENV HOME=/build
 
 WORKDIR /root
 
-RUN SRPMS=("bluefield_edac" "tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxbf-bootctl" "mlxbf-ptm" \
+RUN SRPMS=("bluefield_edac" "tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxbf-bootctl" \
   "mlxbf-pmc" "mlxbf-livefish" "mlxbf-gige" "mlx-trio" "ipmb-dev-int" "ipmb-host" "pinctrl-mlxbf3") && \
-  SRPMS_PATCH_REQUIRED=("sdhci-of-dwcmshc" "mlxbf-pka") && \
   wget -r -np -nd -A rpm -e robots=off "${D_SOC_BASE_URL}/SRPMS" --accept-regex="$(IFS='|'; echo "(${SRPMS[*]/%/.+\.rpm})")"
 
 RUN source /kernelver.env && \
@@ -100,7 +96,6 @@ RUN source /kernelver.env && \
 
 FROM ${TARGET_IMAGE} AS base
 
-ARG D_KERNEL_VER
 ARG RHCOS_VERSION
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
@@ -205,7 +200,6 @@ RUN dnf -y install \
   doca-socket-relay \
   doca-sosreport \
   dpa-stats \
-  # dpaeumgmt \
   dpcp  \
   flexio-sdk \
   ibacm \
