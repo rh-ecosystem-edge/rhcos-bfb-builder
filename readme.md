@@ -32,9 +32,9 @@ export PULL_SECRET=<path to pull secret file>
 
 Set Nvidia DPU stack versions:
 ```bash
-export OFED_VERSION="24.10-1.1.4.0"
-export DOCA_VERSION="2.9.1"
-export DOCA_DISTRO="rhel9.2"
+export OFED_VERSION="25.04-0.6.0.0"
+export DOCA_VERSION="3.0.0"
+export DOCA_DISTRO="rhel9.4"
 ```
 
 ```bash

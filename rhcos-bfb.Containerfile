@@ -1,18 +1,16 @@
 ARG BUILDER_IMAGE
 ARG TARGET_IMAGE
 ARG RHCOS_VERSION
-ARG D_OS
 ARG D_ARCH
-ARG D_CONTAINER_VER
+ARG D_CONTAINER_VER=0
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
 ARG D_KERNEL_VER
-ARG D_OFED_SRC_DOWNLOAD_PATH
-ARG OFED_SRC_LOCAL_DIR
+ARG D_OFED_SRC_DOWNLOAD_PATH="/run/mellanox/src"
+ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSION}
 
 FROM ${BUILDER_IMAGE} AS builder
 
-ARG D_OS
 ARG D_KERNEL_VER
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
@@ -20,9 +18,10 @@ ARG D_CONTAINER_VER
 ARG D_OFED_SRC_DOWNLOAD_PATH
 ARG OFED_SRC_LOCAL_DIR
 
+
 ARG D_OFED_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/MLNX_OFED"
 ARG D_OFED_SRC_TYPE=""
-ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES/SoC"
+ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/extras"
 
 RUN rm /etc/yum.repos.d/ubi.repo
 RUN KVER=$(ls /usr/lib/modules | head -n1) && \
@@ -51,7 +50,7 @@ RUN if file ${D_OFED_SRC_ARCHIVE} | grep compressed; then \
 
 RUN set -x && \
   source /kernelver.env && \
-  perl -d ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro rhcos --kernel ${D_KERNEL_VER} --kernel-sources /lib/modules/${D_KERNEL_VER}/build \
+  perl ${OFED_SRC_LOCAL_DIR}/install.pl --without-depcheck --distro rhel --kernel ${D_KERNEL_VER} --kernel-sources /lib/modules/${D_KERNEL_VER}/build \
   --kernel-only --build-only \
   --with-iser --with-srp --with-isert --with-knem --with-xpmem --fwctl \
   --with-mlnx-tools --with-ofed-scripts --copy-ifnames-udev
@@ -63,23 +62,26 @@ ENV HOME=/build
 WORKDIR /root
 
 RUN SRPMS=("bluefield_edac" "tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxbf-bootctl" "mlxbf-ptm" \
-  "mlxbf-pmc" "mlxbf-livefish" "mlxbf-gige" "mlx-trio" "ipmb-dev-int" "ipmb-host") && \
-  TARBALLS=("sdhci-of-dwcmshc" "mlxbf-pka" "pinctrl-mlxbf3") && \
-  wget -r -np -nd -A rpm -e robots=off "${D_SOC_BASE_URL}/SRPMS" --accept-regex="$(IFS='|'; echo "(${SRPMS[*]/%/.+\.rpm})")" && \
-  wget -r -np -nd -A tar.gz -e robots=off "${D_SOC_BASE_URL}/SOURCES" --accept-regex="$(IFS='|'; echo "(${TARBALLS[*]/%/.+\.tar\.gz})")"
+  "mlxbf-pmc" "mlxbf-livefish" "mlxbf-gige" "mlx-trio" "ipmb-dev-int" "ipmb-host" "pinctrl-mlxbf3") && \
+  SRPMS_PATCH_REQUIRED=("sdhci-of-dwcmshc" "mlxbf-pka") && \
+  wget -r -np -nd -A rpm -e robots=off "${D_SOC_BASE_URL}/SRPMS" --accept-regex="$(IFS='|'; echo "(${SRPMS[*]/%/.+\.rpm})")"
 
 RUN source /kernelver.env && \
     for package in *.src.rpm; do \
     rpmbuild --rebuild $package --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}" || exit 1; \
+    rm -f $package; \
   done
 
+RUN SRPMS_PATCH_REQUIRED=("sdhci-of-dwcmshc" "mlxbf-pka") && \
+  wget -r -np -nd -A rpm -e robots=off "${D_SOC_BASE_URL}/SRPMS" --accept-regex="$(IFS='|'; echo "(${SRPMS_PATCH_REQUIRED[*]/%/.+\.rpm})")"
+
 COPY patches/sdhci-of-dwcmshc-patch1.patch /build/rpmbuild/SOURCES
-COPY patches/mlxbf-pka-patch1.patch /build/rpmbuild/SOURCES
-COPY patches/pinctrl-mlxbf3-patch1.patch /build/rpmbuild/SOURCES
 
 RUN source /kernelver.env && \
   PACKAGE="sdhci-of-dwcmshc" && \
-  tar -xvf $PACKAGE-*.tar.gz -o && rm -f $PACKAGE-*.tar.gz && \
+  rpm2cpio $PACKAGE-*.src.rpm | cpio -idm && \
+  rm -f $PACKAGE-*.src.rpm && \
+  tar -xvf $PACKAGE-*.tar.gz && rm -f $PACKAGE-*.tar.gz && \
   SRCDIR=$(basename "$PACKAGE"*) && \
   patch $SRCDIR/sdhci.c < /build/rpmbuild/SOURCES/sdhci-of-dwcmshc-patch1.patch && \
   tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
@@ -87,32 +89,23 @@ RUN source /kernelver.env && \
 
 RUN source /kernelver.env && \
   PACKAGE="mlxbf-pka" && \
+  rpm2cpio $PACKAGE-*.src.rpm | cpio -idm && \
+  rm -f $PACKAGE-*.src.rpm && \
   tar -xvf $PACKAGE-*.tar.gz -o && rm -f $PACKAGE-*.tar.gz && \
   SRCDIR=$(basename "$PACKAGE"*) && \
-  patch $SRCDIR/pka_drv_mlxbf.c < /build/rpmbuild/SOURCES/mlxbf-pka-patch1.patch && \
   tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
-  rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
-
-RUN source /kernelver.env && \
-  PACKAGE="pinctrl-mlxbf3" && \
-  tar -xvf $PACKAGE-*.tar.gz -o && rm -f $PACKAGE-*.tar.gz && \
-  SRCDIR=$(basename "$PACKAGE"*) && \
-  patch -p1 < /build/rpmbuild/SOURCES/pinctrl-mlxbf3-patch1.patch && \
-  tar -czf "${SRCDIR}.tar.gz" $SRCDIR && \
-  rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
+  rpmbuild -ba $SRCDIR/*.spec --define 'KMP 1' --define 'compat_cflags -DRHEL_DRM_VERSION=6 -DRHEL_DRM_PATCHLEVEL=12' --define "KVERSION $KVER" --define "_sourcedir $(pwd)" --define "debug_package %{nil}"
 
 ######################################################################
 
 FROM ${TARGET_IMAGE} AS base
 
-ARG D_OS
 ARG D_KERNEL_VER
 ARG RHCOS_VERSION
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
-ARG D_UBUNTU_BASEURL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/ubuntu22.04/arm64-dpu/"
 
 RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
@@ -174,7 +167,7 @@ RUN \
   /tmp/bf-release/etc/NetworkManager \
   /tmp/bf-release/etc/crictl* /tmp/bf-release/etc/kubelet.d /tmp/bf-release/etc/cni; \
   cp -rnv /tmp/bf-release/* /; \
-  echo "bf-bundle-${D_DOCA_VERSION}_${D_OS}" > /etc/mlnx-release; \
+  echo "bf-bundle-${D_DOCA_VERSION}_rhcos${RHCOS_VERSION}}" > /etc/mlnx-release; \
   #
   dnf clean all
 
@@ -270,21 +263,6 @@ RUN dnf -y install \
   && dnf clean all && \
   rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel elfutils-libelf-devel
 
-RUN \
-  # Install packages from the ubuntu repo
-  #
-  PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Kdoca-dms[^"]+') && \
-  curl -O "${D_UBUNTU_BASEURL}/${PACKAGE}" && \
-  ar x $PACKAGE data.tar.zst && \
-  tar --keep-directory-symlink -xf data.tar.zst -C / && \
-  rm -f $PACKAGE
-  #
-  # PACKAGE=$(curl ${D_UBUNTU_BASEURL} | grep -oP 'href="\Ksfc-hbn[^"]+') && \
-  # curl -O "${D_UBUNTU_BASEURL}/${PACKAGE}" && \
-  # ar x $PACKAGE data.tar.zst && \
-  # tar --keep-directory-symlink -xf data.tar.zst -C / && \
-  # rm -f $PACKAGE; \
-
 # Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
@@ -336,4 +314,3 @@ LABEL "rhcos.version"="${RHCOS_VERSION}"
 LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
 LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
 LABEL "rhcos.ofed.version"="${D_OFED_VERSION}"
-
