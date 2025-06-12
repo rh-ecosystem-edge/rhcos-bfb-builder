@@ -17,12 +17,6 @@ export RHCOS_VERSION="4.19.0-rc.4"
 
 export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
-
-export KERNEL_VERSION=$(podman run --authfile $PULL_SECRET -it --rm $TARGET_IMAGE ls /usr/lib/modules | strings)
-
-if [ -z "$KERNEL_VERSION" ]; then
-  echo "ERROR: Failed to extract kernel version from target image"
-fi
 ```
 
 Make sure you export PULL_SECRET, you can obtain it from console.redhat.com.
@@ -32,17 +26,15 @@ export PULL_SECRET=<path to pull secret file>
 
 Set Nvidia DPU stack versions:
 ```bash
-export OFED_VERSION="24.10-1.1.4.0"
-export DOCA_VERSION="2.9.1"
-export DOCA_DISTRO="rhel9.2"
+export OFED_VERSION="25.04-0.6.0.0"
+export DOCA_VERSION="3.0.0"
+export DOCA_DISTRO="rhel9.4"
 ```
 
 ```bash
 podman build -f rhcos-bfb.Containerfile \
 --authfile $PULL_SECRET \
---build-arg D_OS=rhcos$RHCOS_VERSION \
 --build-arg D_ARCH=aarch64 \
---build-arg D_KERNEL_VER=$KERNEL_VERSION \
 --build-arg D_DOCA_VERSION=$DOCA_VERSION \
 --build-arg D_OFED_VERSION=$OFED_VERSION \
 --build-arg D_BASE_IMAGE=$BUILDER_IMAGE \
