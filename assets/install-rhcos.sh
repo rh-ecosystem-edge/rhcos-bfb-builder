@@ -44,7 +44,7 @@ if [[ -f "$IGNITION" ]] && jq -e . "$IGNITION" >/dev/null 2>&1; then
     efibootmgr -b $(efibootmgr -v | grep "Red-Hat CoreOS GRUB" | awk '{print $1}' | cut -d' ' -f1) -B
   fi
 
-  efibootmgr -c -d $device -p 2 -l '\EFI\redhat\grubaa64.efi' -L "Red-Hat CoreOS GRUB"
+  efibootmgr -c -d $device -p 2 -l '\EFI\redhat\shimaa64.efi' -L "Red-Hat CoreOS GRUB"
 
   reboot
 else

@@ -13,7 +13,7 @@ git clone --recursive https://github.com/rh-ecosystem-edge/rhcos-bfb-builder.git
 ### Build the RHCOS image
 First use an openshift cluster to check the release image for the RHCOS version you want to build.
 ```bash
-export RHCOS_VERSION="4.19.0-rc.4"
+export RHCOS_VERSION="4.20.0-ec.4"
 
 export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")

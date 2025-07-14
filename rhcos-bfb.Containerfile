@@ -21,7 +21,6 @@ ARG D_OFED_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSIO
 ARG D_OFED_SRC_TYPE=""
 ARG D_SOC_BASE_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/extras"
 
-RUN rm /etc/yum.repos.d/ubi.repo
 RUN KVER=$(ls /usr/lib/modules | head -n1) && \
     echo "KVER=$KVER" >> /kernelver.env  
 ARG D_OFED_SRC_ARCHIVE="MLNX_OFED_SRC-${D_OFED_SRC_TYPE}${D_OFED_VERSION}.tgz"
@@ -58,7 +57,7 @@ ENV HOME=/build
 
 WORKDIR /root
 
-RUN SRPMS=("bluefield_edac" "tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxbf-bootctl" \
+RUN SRPMS=("tmfifo" "pwr-mlxbf" "mlxbf-ptm" "gpio-mlxbf3" "mlxbf-bootctl" \
   "mlxbf-pmc" "mlxbf-livefish" "mlxbf-gige" "mlx-trio" "ipmb-dev-int" "ipmb-host" "pinctrl-mlxbf3") && \
   wget -r -np -nd -A rpm -e robots=off "${D_SOC_BASE_URL}/SRPMS" --accept-regex="$(IFS='|'; echo "(${SRPMS[*]/%/.+\.rpm})")"
 
@@ -177,6 +176,7 @@ RUN dnf -y install \
   doca-openvswitch \
   doca-openvswitch-ipsec \
   doca-openvswitch-selinux-policy \
+  doca-openvswitch-test \
   doca-pcc-counters \
   doca-sdk-aes-gcm \
   doca-sdk-apsh \
@@ -245,7 +245,6 @@ RUN dnf -y install \
   mlnx-snap \
   mmc-utils \
   device-mapper \
-  edac-utils \
   lm_sensors \
   efibootmgr \
   i2c-tools \ 
