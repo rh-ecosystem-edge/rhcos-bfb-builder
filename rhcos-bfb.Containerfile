@@ -259,7 +259,9 @@ RUN dnf -y install \
 # Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system
 COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
+
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
+
 COPY assets/install-rhcos.sh /usr/bin/install-rhcos.sh
 COPY assets/install-rhcos.service /usr/lib/systemd/system/install-rhcos.service
 
@@ -277,7 +279,13 @@ RUN \
   checkmodule -M -m -o /tmp/sfc_controller.mod /tmp/sfc_controller.te && \
   semodule_package -o /tmp/sfc_controller.pp -m /tmp/sfc_controller.mod && \
   semodule -i /tmp/sfc_controller.pp && \
-  rm -f /tmp/sfc_controller.te /tmp/sfc_controller.mod /tmp/sfc_controller.pp
+  rm -f /tmp/sfc_controller.te /tmp/sfc_controller.mod /tmp/sfc_controller.pp && \
+  # Create a directory for BFB update scripts
+  mkdir -p /opt/mellanox/bfb
+
+COPY bfb/bfb-build/common/install.env/atf-uefi /opt/mellanox/bfb
+COPY bfb/bfb-build/common/install.env/bmc /opt/mellanox/bfb
+COPY bfb/bfb-build/common/install.env/nic-fw /opt/mellanox/bfb
 
 RUN chmod +x /usr/bin/reload_mlx.sh; \
   chmod +x /usr/bin/install-rhcos.sh; \

@@ -1,7 +1,8 @@
-assets/rhel.repo
-assets/doca.repo
 *.ociarchive
 *.raw
+*.iso
+*.img
+*.aarch64
 workspace
 output
 cache
@@ -10,4 +11,3 @@ tmp*
 old*
 .vscode
 scratch.txt
-bfb/reboot
