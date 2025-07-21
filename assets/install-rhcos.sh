@@ -100,7 +100,9 @@ install_rhcos() {
     fi
 }
 
-
+# Firmware related identification
+cx_pcidev=$(lspci -nD 2> /dev/null | grep 15b3:a2d[26c] | awk '{print $1}' | head -1)
+cx_dev_id=$(lspci -nD -s ${cx_pcidev} 2> /dev/null | awk -F ':' '{print strtonum("0x" $NF)}')
 
 read_ignition_from_bootfifo
 install_rhcos

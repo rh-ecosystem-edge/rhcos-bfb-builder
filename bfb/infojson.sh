@@ -1,4 +1,4 @@
-CONTAINER_IMAGE="localhost/rhcos-bfb:${RHCOS_VERSION}-latest"
+CONTAINER_IMAGE="localhost/${IMG_NAME}:${RHCOS_VERSION}-latest"
 
 check_file_exists() {
     local file_path="$1"

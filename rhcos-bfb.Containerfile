@@ -165,7 +165,7 @@ RUN \
   #
   dnf clean all
 
-RUN dnf -y install \
+RUN dnf -y install --setopt=install_weak_deps=False \
   collectx-clxapi \
   doca-apsh-config \
   doca-bench \
@@ -239,7 +239,7 @@ RUN dnf -y install \
   ucx-rdmacm \
   ucx-xpmem \
   acpid \
-  bridge-utils \
+  # bridge-utils \
   mstflint \
   mft-autocomplete \
   mlnx-snap \
@@ -253,6 +253,7 @@ RUN dnf -y install \
   nvmetcli\
   bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
   bf3-cec-fw-signed \
+  vim-common \
   && dnf clean all && \
   rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel elfutils-libelf-devel
 
@@ -294,7 +295,6 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
-  systemctl disable bfvcheck.service || true; \
   sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config; \
   echo 'OVS_USER_ID="root:root"' >> /etc/sysconfig/openvswitch
 
