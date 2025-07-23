@@ -254,6 +254,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
   bf3-cec-fw-signed \
   vim-common \
+  dhcp-client \
   && dnf clean all && \
   rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel elfutils-libelf-devel
 
@@ -276,6 +277,7 @@ RUN \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
   sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service && \
   echo "hugetlbfs:x:$(getent group hugetlbfs | cut -d: -f3):openvswitch" >> /etc/group && \
+  sed -i 's/${tmpdir}/${TMP_DIR}/' /usr/bin/bfcfg && \
   echo "L+ /opt/mellanox - - - - /usr/opt/mellanox" > /etc/tmpfiles.d/link-opt.conf && \
   checkmodule -M -m -o /tmp/sfc_controller.mod /tmp/sfc_controller.te && \
   semodule_package -o /tmp/sfc_controller.pp -m /tmp/sfc_controller.mod && \

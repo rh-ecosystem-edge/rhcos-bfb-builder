@@ -10,26 +10,36 @@ export WDIR=$(readlink -f $WDIR)
 OUTDIR=$PROJDIR/output
 mkdir -p $OUTDIR
 
-IMAGE="$1"
+IMG_NAME="rhcos-bfb"
 
 source bfb/infojson.sh
 
 kernel="$WDIR/kernel"
 initramfs="$WDIR/initramfs"
 initramfs_final="$WDIR/initramfs_final"
+
 bootimages="$WDIR/bootimages"
 bootimages_rpm="$WDIR/mlxbf-bootimages-signed-*.aarch64.rpm"
 
 DATETIME=$(date +'%F_%H-%M-%S')
 
-IMG_NAME="rhcos"
-
 if [ -n "$RHCOS_VERSION" ]; then
     IMG_NAME="${IMG_NAME}_${RHCOS_VERSION}"
 fi
 
-[ ! -f $bootimages_rpm ] && wget -r -np -e robots=off --reject-regex '(\?C=|index\.html)' -A "*.rpm" -nv -nd -P $WDIR https://linux.mellanox.com/public/repo/bluefield/latest/bootimages/prod/
+if [ -n "$DOCA_VERSION" ]; then
+    IMG_NAME="${IMG_NAME}_${DOCA_VERSION}"
+fi
 
+if [ ! -f $bootimages_rpm ]; then
+    wget -r -np -e robots=off \
+    --reject-regex '(\?C=|index\.html)' \
+    -A rpm \
+    -nv -nd -P "$WDIR" \
+    -e robots=off \
+    --accept-regex="(mlxbf-bootimages-signed.+\.aarch64\.rpm)" \
+    "https://linux.mellanox.com/public/repo/doca/$DOCA_VERSION/$DOCA_DISTRO/arm64-dpu/"
+fi
 
 buildbfb() {
     ARG_NAME=$1
@@ -94,4 +104,4 @@ CAPSULE="$bootimages/lib/firmware/mellanox/boot/capsule/boot_update2.cap"
 ATF_UEFI_VERSION=$(rpm -q --queryformat '%{VERSION}' $bootimages_rpm)
 
 build_infojson
-buildbfb "${IMG_NAME}_coreos-installer" $initramfs_final
+buildbfb "${IMG_NAME}" $initramfs_final

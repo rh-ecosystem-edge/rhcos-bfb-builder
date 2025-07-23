@@ -37,6 +37,10 @@ unmount_partition() {
     true
 }
 
+update_progress() {
+    true
+}
+
 read_ignition_from_bootfifo() {
     local boot_fifo_path="/sys/bus/platform/devices/MLNXBF04:00/bootfifo"
     local cfg_file
@@ -103,17 +107,39 @@ install_rhcos() {
 # Firmware related identification
 cx_pcidev=$(lspci -nD 2> /dev/null | grep 15b3:a2d[26c] | awk '{print $1}' | head -1)
 cx_dev_id=$(lspci -nD -s ${cx_pcidev} 2> /dev/null | awk -F ':' '{print strtonum("0x" $NF)}')
+PSID=$(mstflint -d $cx_pcidev q | grep PSID | awk '{print $NF}')
+# New BMC Credentials
+pwgen() {
+    tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$1"
+}
+BMC_USER="firmware_updater"
+BMC_PASSWORD="$(pwgen 4)-$(pwgen 4)_$(pwgen 2)$(pwgen 2)"
+# BMC Firmware Update
+BMC_REBOOT="yes"
+CEC_REBOOT="yes"
+USER_ID=8
+
+pre_bmc_components_update() {
+    ipmitool user set name $USER_ID $BMC_USER
+    ipmitool user set password $USER_ID $BMC_PASSWORD
+    ipmitool user enable $USER_ID
+    ipmitool channel setaccess 1 $USER_ID ipmi=on
+    ipmitool user priv $USER_ID 0x4 1
+}
+
+post_bmc_components_update() {
+    ipmitool user set name $USER_ID ""
+}
+
+###
 
 read_ignition_from_bootfifo
 install_rhcos
 
-# bmc_components_update
+bmc_components_update
 update_atf_uefi
 update_nic_firmware
 
 ilog "INFO: Installation completed successfully, Rebooting in 5 Seconds..."
 sleep 5
 reboot
-
-
-
