@@ -1,5 +1,7 @@
 #!/bin/bash
 set -ex
+
+export PATH=$(realpath bfb/bfscripts):$PATH
 export PROJDIR="$(realpath "$(dirname "$0")")"
 WDIR=workspace
 mkdir -p $WDIR
@@ -8,33 +10,42 @@ export WDIR=$(readlink -f $WDIR)
 OUTDIR=$PROJDIR/output
 mkdir -p $OUTDIR
 
-IMAGE="$1"
+IMG_NAME="rhcos-bfb"
+
+source bfb/infojson.sh
 
 kernel="$WDIR/kernel"
 initramfs="$WDIR/initramfs"
 initramfs_final="$WDIR/initramfs_final"
+
 bootimages="$WDIR/bootimages"
 bootimages_rpm="$WDIR/mlxbf-bootimages-signed-*.aarch64.rpm"
 
 DATETIME=$(date +'%F_%H-%M-%S')
 
-IMG_NAME="rhcos"
-
 if [ -n "$RHCOS_VERSION" ]; then
     IMG_NAME="${IMG_NAME}_${RHCOS_VERSION}"
 fi
 
-[ ! -f $bootimages_rpm ] && wget -r -np -e robots=off --reject-regex '(\?C=|index\.html)' -A "*.rpm" -nv -nd -P $WDIR https://linux.mellanox.com/public/repo/bluefield/latest/bootimages/prod/
+if [ -n "$DOCA_VERSION" ]; then
+    IMG_NAME="${IMG_NAME}_${DOCA_VERSION}"
+fi
 
+if [ ! -f $bootimages_rpm ]; then
+    wget -r -np -e robots=off \
+    --reject-regex '(\?C=|index\.html)' \
+    -A rpm \
+    -nv -nd -P "$WDIR" \
+    -e robots=off \
+    --accept-regex="(mlxbf-bootimages-signed.+\.aarch64\.rpm)" \
+    "https://linux.mellanox.com/public/repo/doca/$DOCA_VERSION/$DOCA_DISTRO/arm64-dpu/"
+fi
 
 buildbfb() {
     ARG_NAME=$1
     ARG_INITRAMFS=$2
 
     KERNEL_DBG_ARGS="ignore_loglevel"
-
-    BFB="$bootimages/lib/firmware/mellanox/boot/default.bfb"
-    CAPSULE="$bootimages/lib/firmware/mellanox/boot/capsule/boot_update2.cap"
 
     boot_args=$(mktemp)
     boot_args2=$(mktemp)
@@ -49,7 +60,7 @@ buildbfb() {
     printf "VenHw(F019E406-8C9C-11E5-8797-001ACA00BFC4)/Image" > "$boot_path"
     printf "Linux from rshim" > "$boot_desc"
 
-    $PROJDIR/bfscripts/mlx-mkbfb \
+    $PROJDIR/bfb/bfscripts/mlx-mkbfb \
         --image "$kernel" \
         --initramfs "$ARG_INITRAMFS" \
         --capsule "$CAPSULE" \
@@ -57,6 +68,7 @@ buildbfb() {
         --boot-args-v2 "$boot_args2" \
         --boot-path "$boot_path" \
         --boot-desc "$boot_desc" \
+        --info "${WDIR}/info.json" \
         ${BFB} $WDIR/${BFB_FILENAME}
 
     mv $WDIR/$BFB_FILENAME $OUTDIR/$BFB_FILENAME
@@ -67,6 +79,9 @@ buildbfb() {
     rm $boot_path
     rm $boot_desc
 }
+
+
+
 
 
 rm -rf $bootimages
@@ -84,6 +99,9 @@ cp "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64" $kernel
 
 cat "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img" "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img" > $initramfs_final
 
+BFB="$bootimages/lib/firmware/mellanox/boot/default.bfb"
+CAPSULE="$bootimages/lib/firmware/mellanox/boot/capsule/boot_update2.cap"
+ATF_UEFI_VERSION=$(rpm -q --queryformat '%{VERSION}' $bootimages_rpm)
 
-
-buildbfb "${IMG_NAME}_coreos-installer" $initramfs_final
+build_infojson
+buildbfb "${IMG_NAME}" $initramfs_final
