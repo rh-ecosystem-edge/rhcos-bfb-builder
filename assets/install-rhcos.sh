@@ -109,11 +109,8 @@ cx_pcidev=$(lspci -nD 2> /dev/null | grep 15b3:a2d[26c] | awk '{print $1}' | hea
 cx_dev_id=$(lspci -nD -s ${cx_pcidev} 2> /dev/null | awk -F ':' '{print strtonum("0x" $NF)}')
 PSID=$(mstflint -d $cx_pcidev q | grep PSID | awk '{print $NF}')
 # New BMC Credentials
-pwgen() {
-    tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$1"
-}
 BMC_USER="firmware_updater"
-BMC_PASSWORD="$(pwgen 4)-$(pwgen 4)_$(pwgen 2)$(pwgen 2)"
+BMC_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 4)-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 4)_$(tr -dc '0-9' </dev/urandom | head -c 2)$(tr -dc 'a-z' </dev/urandom | head -c 1)$(tr -dc 'A-Z' </dev/urandom | head -c 1)"
 # BMC Firmware Update
 BMC_REBOOT="yes"
 CEC_REBOOT="yes"
