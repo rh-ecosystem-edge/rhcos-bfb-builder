@@ -159,7 +159,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   vim-common \
   dhcp-client \
   && dnf clean all && \
-  rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel elfutils-libelf-devel
+  rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
+  elfutils-libelf-devel meson libyaml-devel ninja-build epel-release
 
 # Temporary hack to reload mlx5_core
 COPY assets/reload_mlx.service /usr/lib/systemd/system

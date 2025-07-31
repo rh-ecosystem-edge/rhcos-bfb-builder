@@ -1,7 +1,15 @@
 # RHCOS BFB Build
+This projects generates a Red Hat CoreOS (RHCOS) BFB image for the Nvidia BlueField DPU. It currently uses `custome-coreos-disk-images` to generate the live artifacts.
 
 ### Pre-requisites
-Podman and qemu-user-static are required to build the RHCOS image on a non-aarch64 machine.
+Container image build requirements:
+- Podman
+- qemu-user-static-binfmt (needed for building on non-aarch64 machines)
+- subscription-manager (Will enable podman to automount the subscription entitlements)
+BFB build requirements:
+- Fedora aarch64 41 or later (Due to osbuild dependencies)
+- skopeo
+- SELinux disabled
 
 
 ### Clone the project
