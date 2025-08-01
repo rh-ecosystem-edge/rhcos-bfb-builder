@@ -7,6 +7,7 @@ ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
 ARG D_OFED_SRC_DOWNLOAD_PATH="/run/mellanox/src"
 ARG OFED_SRC_LOCAL_DIR=${D_OFED_SRC_DOWNLOAD_PATH}/MLNX_OFED_SRC-${D_OFED_VERSION}
+ARG IMAGE_TAG
 
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -100,6 +101,7 @@ ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
+ARG IMAGE_TAG
 
 RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
@@ -317,3 +319,4 @@ LABEL "rhcos.version"="${RHCOS_VERSION}"
 LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
 LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
 LABEL "rhcos.ofed.version"="${D_OFED_VERSION}"
+LABEL "IMAGE_TAG"="${IMAGE_TAG}"
