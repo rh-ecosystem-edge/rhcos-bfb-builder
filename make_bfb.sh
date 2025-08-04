@@ -12,14 +12,9 @@ mkdir -p $OUTDIR
 
 IMG_NAME="rhcos-bfb"
 
-source bfb/infojson.sh
-
 kernel="$WDIR/kernel"
 initramfs="$WDIR/initramfs"
 initramfs_final="$WDIR/initramfs_final"
-
-bootimages="$WDIR/bootimages"
-bootimages_rpm="$WDIR/mlxbf-bootimages-signed-*.aarch64.rpm"
 
 DATETIME=$(date +'%F_%H-%M-%S')
 
@@ -29,16 +24,6 @@ fi
 
 if [ -n "$DOCA_VERSION" ]; then
     IMG_NAME="${IMG_NAME}_${DOCA_VERSION}"
-fi
-
-if [ ! -f $bootimages_rpm ]; then
-    wget -r -np -e robots=off \
-    --reject-regex '(\?C=|index\.html)' \
-    -A rpm \
-    -nv -nd -P "$WDIR" \
-    -e robots=off \
-    --accept-regex="(mlxbf-bootimages-signed.+\.aarch64\.rpm)" \
-    "https://linux.mellanox.com/public/repo/doca/$DOCA_VERSION/$DOCA_DISTRO/arm64-dpu/"
 fi
 
 buildbfb() {
@@ -63,13 +48,13 @@ buildbfb() {
     $PROJDIR/bfb/bfscripts/mlx-mkbfb \
         --image "$kernel" \
         --initramfs "$ARG_INITRAMFS" \
-        --capsule "$CAPSULE" \
+        --capsule "$WDIR/boot_update2.cap" \
         --boot-args-v0 "$boot_args" \
         --boot-args-v2 "$boot_args2" \
         --boot-path "$boot_path" \
         --boot-desc "$boot_desc" \
         --info "${WDIR}/info.json" \
-        ${BFB} $WDIR/${BFB_FILENAME}
+        $WDIR/default.bfb $WDIR/${BFB_FILENAME}
 
     mv $WDIR/$BFB_FILENAME $OUTDIR/$BFB_FILENAME
 
@@ -79,14 +64,6 @@ buildbfb() {
     rm $boot_path
     rm $boot_desc
 }
-
-
-
-
-
-rm -rf $bootimages
-echo "Extracting Mellanox BFB bootimages..."
-mkdir -p $bootimages && rpm2cpio $bootimages_rpm | cpio -idm -D $bootimages
 
 if command -v pigz &>/dev/null; then
     GZ="pigz"
@@ -99,9 +76,13 @@ cp "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64" $kernel
 
 cat "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img" "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img" > $initramfs_final
 
-BFB="$bootimages/lib/firmware/mellanox/boot/default.bfb"
-CAPSULE="$bootimages/lib/firmware/mellanox/boot/capsule/boot_update2.cap"
-ATF_UEFI_VERSION=$(rpm -q --queryformat '%{VERSION}' $bootimages_rpm)
+CID=$(podman run -d "rhcos-bfb:${RHCOS_VERSION}-latest" sleep infinity)
 
-build_infojson
+podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
+podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
+podman cp $CID:/usr/opt/mellanox/bfb/info.json $WDIR/info.json
+
+podman stop $CID
+podman rm $CID
+
 buildbfb "${IMG_NAME}" $initramfs_final

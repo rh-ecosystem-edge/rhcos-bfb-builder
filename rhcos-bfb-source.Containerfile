@@ -223,6 +223,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   mlnx-libsnap \
   mlx-OpenIPMI \
   mlxbf-bfscripts \
+  mlxbf-bootimages-signed \
   mlnx-fw-updater-signed \
   ofed-scripts \
   opensm \
@@ -289,6 +290,7 @@ RUN \
 COPY bfb/bfb-build/common/install.env/atf-uefi /opt/mellanox/bfb
 COPY bfb/bfb-build/common/install.env/bmc /opt/mellanox/bfb
 COPY bfb/bfb-build/common/install.env/nic-fw /opt/mellanox/bfb
+COPY assets/infojson.sh /opt/mellanox/bfb/infojson.sh
 
 RUN chmod +x /usr/bin/reload_mlx.sh; \
   chmod +x /usr/bin/install-rhcos.sh; \
@@ -299,6 +301,8 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable reload_mlx.service || true; \
   sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config; \
   echo 'OVS_USER_ID="root:root"' >> /etc/sysconfig/openvswitch
+
+RUN bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
 
 # RUN echo 'omit_drivers+=" mlx4_core mlx4_en mlx5_core mlxbf_gige.ko mlxfw "' >> /usr/lib/dracut/dracut.conf.d/50-mellanox-overrides.conf 
 # RUN set -x; kver=$(cd /usr/lib/modules && echo *); \
