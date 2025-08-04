@@ -12,6 +12,7 @@ ARG D_DOCA_VERSION
 # ARG D_DOCA_DISTRO
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
+ARG IMAGE_TAG
 
 RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
