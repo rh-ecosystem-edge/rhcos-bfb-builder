@@ -9,7 +9,7 @@ FROM ${TARGET_IMAGE} AS base
 
 ARG RHCOS_VERSION
 ARG D_DOCA_VERSION
-# ARG D_DOCA_DISTRO
+ARG D_DOCA_DISTRO
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 ARG IMAGE_TAG
@@ -23,7 +23,7 @@ RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rp
   cat <<EOF > /etc/yum.repos.d/doca.repo
 [doca]
 name=Nvidia DOCA repository
-baseurl=https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/arm64-dpu/
+baseurl=https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/${D_DOCA_DISTRO}/arm64-dpu/
 gpgcheck=0
 enabled=1
 EOF
