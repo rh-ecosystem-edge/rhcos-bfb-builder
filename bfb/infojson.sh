@@ -234,7 +234,7 @@ build_infojson() {
         DOCA_SOURCE=$(run_container 'rpm -q --queryformat "[%{NAME}-%{VERSION}-%{RELEASE}]" doca-runtime')
 
         # WORKAROUND
-        DOCA_VERSION="3.0.0058"
+        DOCA_VERSION="3.1.0087"
 
         json_output=$( echo $json_output | jq \
         --arg odata_count "$odata_count" \
