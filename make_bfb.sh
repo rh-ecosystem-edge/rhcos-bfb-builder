@@ -65,17 +65,54 @@ buildbfb() {
     rm $boot_desc
 }
 
-cp "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64" $kernel
 
-cat "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img" "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img" > $initramfs_final
+main() {
+    # default values to keep existing behavior
+    coreos_kernel="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64"
+    coreos_initramfs="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img"
+    coreos_rootfs="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img"
 
-CID=$(podman run -d "rhcos-bfb:${RHCOS_VERSION}-latest" sleep infinity)
+    # Call getopt to validate the provided input.
+    options=$(getopt --options - --longoptions 'kernel:,initramfs:,rootfs:' -- "$@")
+    if [ $? -ne 0 ]; then
+        echo "Incorrect options provided"
+        exit 1
+    fi
+    eval set -- "$options"
+    while true; do
+        case "$1" in
+        --kernel)
+            shift # The arg is next in position args
+            coreos_kernel=$1
+            ;;
+        --initramfs)
+            shift # The arg is next in position args
+            coreos_initramfs=$1
+            ;;
+        --rootfs)
+            shift # The arg is next in position args
+            coreos_rootfs=$1
+            ;;
+        --)
+            shift
+            break
+            ;;
+        esac
+        shift
+    done
+    cp "${coreos_kernel}" $kernel
+    cat "${coreos_initramfs}" "${coreos_rootfs}" > $initramfs_final
 
-podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
-podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
-podman cp $CID:/usr/opt/mellanox/bfb/info.json $WDIR/info.json
+    CID=$(podman run -d "rhcos-bfb:${RHCOS_VERSION}-latest" sleep infinity)
 
-podman stop $CID
-podman rm $CID
+    podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
+    podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
+    podman cp $CID:/usr/opt/mellanox/bfb/info.json $WDIR/info.json
 
-buildbfb "${IMG_NAME}" $initramfs_final
+    podman stop $CID
+    podman rm $CID
+
+    buildbfb "${IMG_NAME}" $initramfs_final
+}
+
+main "$@"
