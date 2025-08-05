@@ -65,13 +65,6 @@ buildbfb() {
     rm $boot_desc
 }
 
-if command -v pigz &>/dev/null; then
-    GZ="pigz"
-else
-    echo "pigz is not installing, will use gzip instead."
-    GZ="gzip"
-fi
-
 cp "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64" $kernel
 
 cat "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img" "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img" > $initramfs_final
