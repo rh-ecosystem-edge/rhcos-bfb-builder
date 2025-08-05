@@ -74,7 +74,7 @@ main() {
     coreos_bfb_container="rhcos-bfb:${RHCOS_VERSION}-latest"
 
     # Call getopt to validate the provided input.
-    options=$(getopt --options - --longoptions 'kernel:,initramfs:,rootfs:,bfb-container:' -- "$@")
+    options=$(getopt --options - --longoptions 'kernel:,initramfs:,rootfs:,bfb-container:,default-bfb:,capsule:,infojson:' -- "$@")
     if [ $? -ne 0 ]; then
         echo "Incorrect options provided"
         exit 1
@@ -98,6 +98,18 @@ main() {
             shift # The arg is next in position args
             coreos_bfb_container=$1
             ;;
+        --default-bfb)
+            shift # The arg is next in position args
+            default_bfb=$1
+            ;;
+        --capsule)
+            shift # The arg is next in position args
+            capsule=$1
+            ;;
+        --infojson)
+            shift # The arg is next in position args
+            infojson=$1
+            ;;
         --)
             shift
             break
@@ -108,14 +120,25 @@ main() {
     cp "${coreos_kernel}" $kernel
     cat "${coreos_initramfs}" "${coreos_rootfs}" > $initramfs_final
 
-    CID=$(podman run -d "${coreos_bfb_container}" sleep infinity)
-
-    podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
-    podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
-    podman cp $CID:/usr/opt/mellanox/bfb/info.json $WDIR/info.json
-
-    podman stop $CID
-    podman rm $CID
+    # If the default bfb, capsule and infojson weren't provided on
+    # the command line then we'll pull them from the container
+    if [ -z "${default_bfb}${capsule}${infojson}" ]; then
+        CID=$(podman run -d "${coreos_bfb_container}" sleep infinity)
+        podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
+        podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
+        podman cp $CID:/usr/opt/mellanox/bfb/info.json $WDIR/info.json
+        podman stop $CID
+        podman rm $CID
+    else
+        # Otherwise we'll use the ones provided by the user.
+        if [ ! -f "${default_bfb}" ] || [ ! -f "${capsule}" ] || [ ! -f "${infojson}" ]; then
+            echo "Must provide all of --default-bfb, --capsule, and --infojson if providing any." >&2
+            exit 1
+        fi
+        cp "${default_bfb}" $WDIR/default.bfb
+        cp "${capsule}" $WDIR/boot_update2.cap
+        cp "${infojson}" $WDIR/info.json
+    fi
 
     buildbfb "${IMG_NAME}" $initramfs_final
 }
