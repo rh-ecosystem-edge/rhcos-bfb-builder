@@ -71,9 +71,10 @@ main() {
     coreos_kernel="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64"
     coreos_initramfs="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img"
     coreos_rootfs="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img"
+    coreos_bfb_container="rhcos-bfb:${RHCOS_VERSION}-latest"
 
     # Call getopt to validate the provided input.
-    options=$(getopt --options - --longoptions 'kernel:,initramfs:,rootfs:' -- "$@")
+    options=$(getopt --options - --longoptions 'kernel:,initramfs:,rootfs:,bfb-container:' -- "$@")
     if [ $? -ne 0 ]; then
         echo "Incorrect options provided"
         exit 1
@@ -93,6 +94,10 @@ main() {
             shift # The arg is next in position args
             coreos_rootfs=$1
             ;;
+        --bfb-container)
+            shift # The arg is next in position args
+            coreos_bfb_container=$1
+            ;;
         --)
             shift
             break
@@ -103,7 +108,7 @@ main() {
     cp "${coreos_kernel}" $kernel
     cat "${coreos_initramfs}" "${coreos_rootfs}" > $initramfs_final
 
-    CID=$(podman run -d "rhcos-bfb:${RHCOS_VERSION}-latest" sleep infinity)
+    CID=$(podman run -d "${coreos_bfb_container}" sleep infinity)
 
     podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
     podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
