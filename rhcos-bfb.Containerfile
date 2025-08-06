@@ -226,3 +226,4 @@ LABEL "rhcos.version"="${RHCOS_VERSION}"
 LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
 # LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
 LABEL "com.coreos.osname"=rhcos
+LABEL "rhcos.custom.tag"="${IMAGE_TAG}"
