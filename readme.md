@@ -11,6 +11,23 @@ BFB build requirements:
 - skopeo
 - SELinux disabled
 
+Ensure your Fedora system has at least 50GB of storage.
+```bash
+[ $(df --output=avail / | tail -1) -lt 52428800 ] && echo "Warning: Less than 50GB available"
+```
+
+Ensure you are logged in to the Red Hat subscription manager
+```bash
+sudo dnf install subscription-manager
+sudo subscription-manager register --username YOUR_USERNAME
+```
+
+Ensure dependencies are installed
+```bash
+sudo dnf install -y podman skopeo git 
+
+sudo dnf install -y osbuild osbuild-tools osbuild-ostree jq xfsprogs 
+```
 
 ### Clone the project
 The project contains Mellanox's bfscripts as a git submoudle, so be sure to clone it as well:
@@ -27,7 +44,7 @@ export RHCOS_VERSION="4.20.0-ec.4"
 export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 ```
 
-Make sure you export PULL_SECRET, you can obtain it from console.redhat.com.
+Make sure you export PULL_SECRET, you can obtain it from https://console.redhat.com/openshift/install/pull-secret.
 ```bash
 export PULL_SECRET=<path to pull secret file>
 ```
@@ -56,7 +73,7 @@ skopeo copy containers-storage:localhost/rhcos-bfb:$RHCOS_VERSION-latest oci-arc
 You can follow the instructions at [custom-coreos-disk-images](/custom-coreos-disk-images/README.md) to generate the live artifacts.
 ```bash
 # In Fedora based system:
-sudo dnf install -y osbuild osbuild-tools osbuild-ostree podman jq xfsprogs
+sudo dnf install -y osbuild osbuild-tools osbuild-ostree jq xfsprogs genisoimage
 sudo custom-coreos-disk-images/custom-coreos-disk-images.sh \
   --ociarchive rhcos-bfb_$RHCOS_VERSION.ociarchive \
   --platforms live \
