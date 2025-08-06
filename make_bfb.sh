@@ -123,7 +123,7 @@ main() {
         esac
         shift
     done
-    cp "${coreos_kernel}" $kernel
+    cp --force "${coreos_kernel}" $kernel
     cat "${coreos_initramfs}" "${coreos_rootfs}" > $initramfs_final
 
     # If the default bfb, capsule and infojson weren't provided on
