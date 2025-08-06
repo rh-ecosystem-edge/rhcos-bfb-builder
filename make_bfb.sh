@@ -123,9 +123,6 @@ main() {
         esac
         shift
     done
-    cp --force "${coreos_kernel}" $kernel
-    cat "${coreos_initramfs}" "${coreos_rootfs}" > $initramfs_final
-
     # If the default bfb, capsule and infojson weren't provided on
     # the command line then we'll pull them from the container
     if [ -z "${default_bfb}${capsule}${infojson}" ]; then
@@ -145,6 +142,9 @@ main() {
         cp "${capsule}" $WDIR/boot_update2.cap
         cp "${infojson}" $WDIR/info.json
     fi
+
+    cp --force "${coreos_kernel}" $kernel
+    cat "${coreos_initramfs}" "${coreos_rootfs}" > $initramfs_final
 
     buildbfb "${initramfs_final}" "${output_bfb_filepath}"
 }
