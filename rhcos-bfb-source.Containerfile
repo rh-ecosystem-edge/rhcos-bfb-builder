@@ -240,10 +240,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   ucx-rdmacm \
   ucx-xpmem \
   acpid \
-  # bridge-utils \
   mstflint \
   mft-autocomplete \
-  mlnx-snap \
   mmc-utils \
   device-mapper \
   lm_sensors \
@@ -319,6 +317,6 @@ RUN rm /opt && ln -s /var/opt /opt; \
 
 LABEL "rhcos.version"="${RHCOS_VERSION}"
 LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
-LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
-LABEL "rhcos.ofed.version"="${D_OFED_VERSION}"
+# LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
 LABEL "com.coreos.osname"=rhcos
+LABEL "rhcos.custom.tag"="${IMAGE_TAG}"
