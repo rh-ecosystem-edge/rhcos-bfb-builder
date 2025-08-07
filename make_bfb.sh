@@ -7,8 +7,6 @@ WDIR=workspace
 mkdir -p $WDIR
 export WDIR=$(readlink -f $WDIR)
 
-OUTDIR=$PROJDIR/output
-mkdir -p $OUTDIR
 
 IMG_NAME="rhcos-bfb"
 
@@ -27,8 +25,13 @@ if [ -n "$DOCA_VERSION" ]; then
 fi
 
 buildbfb() {
-    ARG_NAME=$1
-    ARG_INITRAMFS=$2
+    ARG_INITRAMFS=$1
+    ARG_OUTFILE=$2
+
+    BFB_OUTDIR=$(dirname "${ARG_OUTFILE}")
+    BFB_OUTFILENAME=$(basename "${ARG_OUTFILE}")
+
+    mkdir -p "${BFB_OUTDIR}"
 
     KERNEL_DBG_ARGS="ignore_loglevel"
 
@@ -36,8 +39,6 @@ buildbfb() {
     boot_args2=$(mktemp)
     boot_path=$(mktemp)
     boot_desc=$(mktemp)
-
-    BFB_FILENAME="${ARG_NAME}_${DATETIME}.bfb"
 
     printf "console=ttyAMA1 console=hvc0 console=ttyAMA0 earlycon=pl011,0x01000000 earlycon=pl011,0x01800000 initrd=initramfs" > "$boot_args"
     printf "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 initrd=initramfs systemd.wants=install-rhcos.service $KERNEL_DBG_ARGS" > "$boot_args2"
@@ -54,35 +55,98 @@ buildbfb() {
         --boot-path "$boot_path" \
         --boot-desc "$boot_desc" \
         --info "${WDIR}/info.json" \
-        $WDIR/default.bfb $WDIR/${BFB_FILENAME}
+        $WDIR/default.bfb $WDIR/${BFB_OUTFILENAME}
 
-    mv $WDIR/$BFB_FILENAME $OUTDIR/$BFB_FILENAME
+    mv "${WDIR}/${BFB_OUTFILENAME}" "${ARG_OUTFILE}"
 
-    echo "$BFB_FILENAME BFB Image is Ready! $OUTDIR/$BFB_FILENAME"
+    echo "BFB Image is Ready! ${ARG_OUTFILE}"
     rm $boot_args
     rm $boot_args2
     rm $boot_path
     rm $boot_desc
 }
 
-if command -v pigz &>/dev/null; then
-    GZ="pigz"
-else
-    echo "pigz is not installing, will use gzip instead."
-    GZ="gzip"
-fi
 
-cp "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64" $kernel
+main() {
+    # default values to keep existing behavior
+    coreos_kernel="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-kernel.aarch64"
+    coreos_initramfs="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img"
+    coreos_rootfs="${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img"
+    coreos_bfb_container="rhcos-bfb:${RHCOS_VERSION}-latest"
+    output_bfb_filepath="${PROJDIR}/output/${IMG_NAME}_${DATETIME}.bfb"
 
-cat "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-initramfs.aarch64.img" "${PROJDIR}/rhcos-bfb_${RHCOS_VERSION}-live-rootfs.aarch64.img" > $initramfs_final
+    # Call getopt to validate the provided input.
+    options=$(getopt --options - --longoptions 'kernel:,initramfs:,rootfs:,bfb-container:,default-bfb:,capsule:,infojson:,outfile:' -- "$@")
+    if [ $? -ne 0 ]; then
+        echo "Incorrect options provided"
+        exit 1
+    fi
+    eval set -- "$options"
+    while true; do
+        case "$1" in
+        --kernel)
+            shift # The arg is next in position args
+            coreos_kernel=$1
+            ;;
+        --initramfs)
+            shift # The arg is next in position args
+            coreos_initramfs=$1
+            ;;
+        --rootfs)
+            shift # The arg is next in position args
+            coreos_rootfs=$1
+            ;;
+        --bfb-container)
+            shift # The arg is next in position args
+            coreos_bfb_container=$1
+            ;;
+        --default-bfb)
+            shift # The arg is next in position args
+            default_bfb=$1
+            ;;
+        --capsule)
+            shift # The arg is next in position args
+            capsule=$1
+            ;;
+        --infojson)
+            shift # The arg is next in position args
+            infojson=$1
+            ;;
+        --outfile)
+            shift # The arg is next in position args
+            output_bfb_filepath=$1
+            ;;
+        --)
+            shift
+            break
+            ;;
+        esac
+        shift
+    done
+    # If the default bfb, capsule and infojson weren't provided on
+    # the command line then we'll pull them from the container
+    if [ -z "${default_bfb}${capsule}${infojson}" ]; then
+        CID=$(podman run -d "${coreos_bfb_container}" sleep infinity)
+        podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
+        podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
+        podman cp $CID:/usr/opt/mellanox/bfb/info.json $WDIR/info.json
+        podman stop $CID
+        podman rm $CID
+    else
+        # Otherwise we'll use the ones provided by the user.
+        if [ ! -f "${default_bfb}" ] || [ ! -f "${capsule}" ] || [ ! -f "${infojson}" ]; then
+            echo "Must provide all of --default-bfb, --capsule, and --infojson if providing any." >&2
+            exit 1
+        fi
+        cp "${default_bfb}" $WDIR/default.bfb
+        cp "${capsule}" $WDIR/boot_update2.cap
+        cp "${infojson}" $WDIR/info.json
+    fi
 
-CID=$(podman run -d "rhcos-bfb:${RHCOS_VERSION}-latest" sleep infinity)
+    cp --force "${coreos_kernel}" $kernel
+    cat "${coreos_initramfs}" "${coreos_rootfs}" > $initramfs_final
 
-podman cp $CID:/lib/firmware/mellanox/boot/default.bfb $WDIR/default.bfb
-podman cp $CID:/lib/firmware/mellanox/boot/capsule/boot_update2.cap $WDIR/boot_update2.cap
-podman cp $CID:/usr/opt/mellanox/bfb/info.json $WDIR/info.json
+    buildbfb "${initramfs_final}" "${output_bfb_filepath}"
+}
 
-podman stop $CID
-podman rm $CID
-
-buildbfb "${IMG_NAME}" $initramfs_final
+main "$@"
