@@ -297,7 +297,6 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
   systemctl enable reload_mlx.service || true; \
-  sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config; \
   echo 'OVS_USER_ID="root:root"' >> /etc/sysconfig/openvswitch
 
 RUN bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
