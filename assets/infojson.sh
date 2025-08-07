@@ -79,7 +79,6 @@ json_output=$(jq -n \
 odata_count=6
 
 if [ -e "/opt/mellanox/mlnx-fw-updater/firmware/mlxfwmanager_sriov_dis_aarch64_41686" ]; then
-    echo "Found mlxfwmanager_sriov_dis_aarch64_41686, adding BF2_NIC_FW to JSON output"
     let odata_count++
     BF2_NIC_FW_VERSION=$(/opt/mellanox/mlnx-fw-updater/firmware/mlxfwmanager_sriov_dis_aarch64_41686 --list 2> /dev/null | grep FW | head -1 | awk '{print $4}')
 

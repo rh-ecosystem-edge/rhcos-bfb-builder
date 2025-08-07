@@ -144,10 +144,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   ucx-rdmacm \
   ucx-xpmem \
   acpid \
-  # bridge-utils \
   mstflint \
   mft-autocomplete \
-  mlnx-snap \
   mmc-utils \
   device-mapper \
   lm_sensors \

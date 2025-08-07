@@ -62,6 +62,22 @@ read_ignition_from_bootfifo() {
     fi
 }
 
+clear_partitions() {
+    local count_mb=10
+    local bs=1M
+
+    if [[ -b /dev/mmcblk0 ]]; then
+        dd if=/dev/zero of=/dev/mmcblk0 bs=$bs count=$count_mb status=none conv=fsync
+    fi
+    log "Cleared /dev/mmcblk0 partitions."
+
+    for nvme_path in /dev/nvme*n1; do
+        [[ -b "$nvme_path" ]] || continue
+        dd if=/dev/zero of="$nvme_path" bs=$bs count=$count_mb status=none conv=fsync
+        log "Cleared $nvme_path partitions."
+    done
+}
+
 install_rhcos() {
     default_device=/dev/mmcblk0
     if [ -b /dev/nvme0n1 ]; then
@@ -70,15 +86,15 @@ install_rhcos() {
     device=${device:-"$default_device"}
 
     if [[ -f "$IGNITION" ]]; then
-        ilog "INFO: Ignition file found at $IGNITION"
+        log "INFO: Ignition file found at $IGNITION"
 
         # Test if ignition is valid json using jq
         if ! jq -e . "$IGNITION" >/dev/null 2>&1; then
-            ilog "ERROR: Ignition file is not a valid JSON."
+            log "ERROR: Ignition file is not a valid JSON."
             exit 1
         fi
 
-        ilog "INFO: Installing Red Hat CoreOS on $device with ignition file $IGNITION"
+        log "INFO: Installing Red Hat CoreOS on $device with ignition file $IGNITION"
 
         coreos-installer install "$device" \
             --append-karg "console=hvc0 console=ttyAMA0 earlycon=pl011,0x13010000 ignore_loglevel" \
@@ -86,7 +102,7 @@ install_rhcos() {
             --offline
 
         if [ $? -ne 0 ]; then
-            ilog "ERROR: Failed to install Red Hat CoreOS."
+            log "ERROR: Failed to install Red Hat CoreOS."
             exit 1
         fi
 
@@ -99,7 +115,7 @@ install_rhcos() {
         efibootmgr -c -d $device -p 2 -l '\EFI\redhat\shimaa64.efi' -L "Red-Hat CoreOS GRUB"
 
     else
-        ilog "INFO: Ignition file is missing, skipping installation."
+        log "ERROR: Ignition file is missing, skipping installation."
         exit 1
     fi
 }
@@ -108,35 +124,36 @@ install_rhcos() {
 cx_pcidev=$(lspci -nD 2> /dev/null | grep 15b3:a2d[26c] | awk '{print $1}' | head -1)
 cx_dev_id=$(lspci -nD -s ${cx_pcidev} 2> /dev/null | awk -F ':' '{print strtonum("0x" $NF)}')
 PSID=$(mstflint -d $cx_pcidev q | grep PSID | awk '{print $NF}')
-# New BMC Credentials
-BMC_USER="firmware_updater"
-BMC_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 4)-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 4)_$(tr -dc '0-9' </dev/urandom | head -c 2)$(tr -dc 'a-z' </dev/urandom | head -c 1)$(tr -dc 'A-Z' </dev/urandom | head -c 1)"
-# BMC Firmware Update
-BMC_REBOOT="yes"
-CEC_REBOOT="yes"
-USER_ID=8
+# # New BMC Credentials
+# BMC_USER="firmware_updater"
+# BMC_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 4)-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 4)_$(tr -dc '0-9' </dev/urandom | head -c 2)$(tr -dc 'a-z' </dev/urandom | head -c 1)$(tr -dc 'A-Z' </dev/urandom | head -c 1)"
+# # BMC Firmware Update
+# BMC_REBOOT="yes"
+# CEC_REBOOT="yes"
+# USER_ID=8
 
-pre_bmc_components_update() {
-    ipmitool user set name $USER_ID $BMC_USER
-    ipmitool user set password $USER_ID $BMC_PASSWORD
-    ipmitool user enable $USER_ID
-    ipmitool channel setaccess 1 $USER_ID ipmi=on
-    ipmitool user priv $USER_ID 0x4 1
-}
+# pre_bmc_components_update() {
+#     ipmitool user set name $USER_ID $BMC_USER
+#     ipmitool user set password $USER_ID $BMC_PASSWORD
+#     ipmitool user enable $USER_ID
+#     ipmitool channel setaccess 1 $USER_ID ipmi=on
+#     ipmitool user priv $USER_ID 0x4 1
+# }
 
-post_bmc_components_update() {
-    ipmitool user set name $USER_ID ""
-}
+# post_bmc_components_update() {
+#     ipmitool user set name $USER_ID ""
+# }
 
 ###
 
 read_ignition_from_bootfifo
+clear_partitions
 install_rhcos
 
-bmc_components_update
+# bmc_components_update
 update_atf_uefi
 update_nic_firmware
 
-ilog "INFO: Installation completed successfully, Rebooting in 5 Seconds..."
-sleep 5
+log "INFO: Installation completed successfully, Rebooting in 10 Seconds..."
+sleep 10
 reboot
