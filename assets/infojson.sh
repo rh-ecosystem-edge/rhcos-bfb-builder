@@ -216,9 +216,6 @@ if (rpm -q doca-runtime > /dev/null 2>&1); then
     let odata_count++
     DOCA_SOURCE=$(rpm -q --queryformat "[%{NAME}-%{VERSION}-%{RELEASE}]" doca-runtime)
 
-    # WORKAROUND
-    DOCA_VERSION="3.1.0087"
-
     json_output=$( echo $json_output | jq \
     --arg odata_count "$odata_count" \
     --arg odata_id "/redfish/v1/UpdateService/SoftwareInventory/$odata_count" \
