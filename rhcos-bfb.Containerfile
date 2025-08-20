@@ -13,6 +13,7 @@ ARG D_DOCA_DISTRO
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 ARG IMAGE_TAG
+ARG COREOS_OPENCONTAINERS_IMAGE_VERSION
 
 RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
@@ -201,8 +202,7 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true; \
-  systemctl enable reload_mlx.service || true; \
-  echo 'OVS_USER_ID="root:root"' >> /etc/sysconfig/openvswitch
+  systemctl enable reload_mlx.service || true;
 
 RUN bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
 
@@ -224,3 +224,4 @@ LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
 # LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
 LABEL "com.coreos.osname"=rhcos
 LABEL "rhcos.custom.tag"="${IMAGE_TAG}"
+LABEL "org.opencontainers.image.version"="${COREOS_OPENCONTAINERS_IMAGE_VERSION}"
