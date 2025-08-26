@@ -51,18 +51,19 @@ export PULL_SECRET=<path to pull secret file>
 
 Set Nvidia DPU stack versions:
 ```bash
-export DOCA_VERSION="3.1.0-rhel9.6"
-export DOCA_DISTRO=""
+export DOCA_VERSION="3.1.0"
+export DOCA_DISTRO="rhel9.6"
 ```
 
 ```bash
 podman build -f rhcos-bfb.Containerfile \
---authfile $PULL_SECRET \
---build-arg D_ARCH=aarch64 \
---build-arg D_DOCA_VERSION=$DOCA_VERSION \
---build-arg D_FINAL_BASE_IMAGE=$TARGET_IMAGE \
---build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
---tag "rhcos-bfb:$RHCOS_VERSION-latest"
+  --authfile $PULL_SECRET \
+  --build-arg D_ARCH=aarch64 \
+  --build-arg D_DOCA_VERSION=$DOCA_VERSION \
+  --build-arg RHCOS_VERSION=$RHCOS_VERSION \
+  --build-arg TARGET_IMAGE=$TARGET_IMAGE \
+  --build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
+  --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
 ```
 
 ### Creating disk boot images
