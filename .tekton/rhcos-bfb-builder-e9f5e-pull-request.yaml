@@ -120,6 +120,15 @@ spec:
       description: List of platforms to build the container images on. The available set of values is determined by the configuration of the multi-platform-controller.
       name: build-platforms
       type: array
+    - name: remote-registry
+      default: quay.io/openshift-release-dev/ocp-release
+      type: string
+    - name: arch
+      type: string
+      default: aarch64
+    - name: rhcos-version
+      type: string
+      default: 4.19.0-ec.4 
     results:
     - description: ""
       name: IMAGE_URL
@@ -134,6 +143,25 @@ spec:
       name: CHAINS-GIT_COMMIT
       value: $(tasks.clone-repository.results.commit)
     tasks:
+    - name: get-oc-versions
+      params:
+      - name: rhcos_version
+        value: $(params.rhcos-version)
+      - name: arch
+        value: $(params.arch)
+      - name: remote_registry
+        value: $(params.remote-registry)
+      taskRef:
+        params:
+        - name: name
+          value: get-oc-versions
+        - name: bundle
+          value: quay.io/ebelarte/konflux-ci/oc-get-versions:0.2@sha256:12987290bfc14ea98e5c960c7722235f765a9ce26a7eaeace4620977147590f3 
+        - name: kind
+          value: task
+        resolver: bundles
+      runAfter:
+        - prefetch-dependencies 
     - name: init
       params:
       - name: image-url
