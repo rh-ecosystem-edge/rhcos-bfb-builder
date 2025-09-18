@@ -66,6 +66,36 @@ podman build -f rhcos-bfb.Containerfile \
   --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
 ```
 
+Optionally, you can override the DOCA repository baseurl by either:
+
+**Option 1: Using environment variable**
+```bash
+export DOCA_BASEURL="<RPM_REPO_URL>"
+
+podman build -f rhcos-bfb.Containerfile \
+  --authfile $PULL_SECRET \
+  --build-arg D_ARCH=aarch64 \
+  --build-arg D_DOCA_VERSION=$DOCA_VERSION \
+  --build-arg RHCOS_VERSION=$RHCOS_VERSION \
+  --build-arg TARGET_IMAGE=$TARGET_IMAGE \
+  --build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
+  --build-arg D_DOCA_BASEURL=$DOCA_BASEURL \
+  --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
+```
+
+**Option 2: Directly via --build-arg**
+```bash
+podman build -f rhcos-bfb.Containerfile \
+  --authfile $PULL_SECRET \
+  --build-arg D_ARCH=aarch64 \
+  --build-arg D_DOCA_VERSION=$DOCA_VERSION \
+  --build-arg RHCOS_VERSION=$RHCOS_VERSION \
+  --build-arg TARGET_IMAGE=$TARGET_IMAGE \
+  --build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
+  --build-arg D_DOCA_BASEURL="<RPM_REPO_URL>" \
+  --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
+```
+
 ### Creating disk boot images
 ```bash
 skopeo copy containers-storage:localhost/rhcos-bfb:$RHCOS_VERSION-latest oci-archive:rhcos-bfb_$RHCOS_VERSION.ociarchive
