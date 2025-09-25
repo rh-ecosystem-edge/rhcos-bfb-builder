@@ -4,18 +4,20 @@ ARG RHCOS_VERSION
 ARG D_ARCH
 ARG D_CONTAINER_VER=0
 ARG D_DOCA_VERSION
-ARG D_DOCA_BASEURL
+ARG D_DOCA_BASEURL=https://linux.mellanox.com/public/repo/doca
 
 FROM ${TARGET_IMAGE} AS base
 
 ARG RHCOS_VERSION
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
-ARG D_DOCA_BASEURL
+ARG D_DOCA_BASEURL=
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 ARG IMAGE_TAG
 ARG COREOS_OPENCONTAINERS_IMAGE_VERSION
+
+ENV D_DOCA_FINALURL=${D_DOCA_BASEURL:-https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/${D_DOCA_DISTRO}/arm64-dpu/}
 
 RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
@@ -26,7 +28,7 @@ RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rp
   cat <<EOF > /etc/yum.repos.d/doca.repo
 [doca]
 name=Nvidia DOCA repository
-baseurl=\${D_DOCA_BASEURL:-https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/${D_DOCA_DISTRO}/arm64-dpu/}
+baseurl=${D_DOCA_FINALURL}
 gpgcheck=0
 enabled=1
 EOF
