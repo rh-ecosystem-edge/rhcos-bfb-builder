@@ -35,9 +35,6 @@ The project contains Mellanox's bfscripts as a git submoudle, so be sure to clon
 git clone --recursive https://github.com/rh-ecosystem-edge/rhcos-bfb-builder.git
 ```
 
-### Build the RHCOS image
-If you want to build RHCOS-BFB with drivers from source, you can follow the instructions [here](build-from-source.md).
-
 First use an openshift cluster to check the release image for the RHCOS version you want to build.
 ```bash
 export RHCOS_VERSION="4.20.0-ec.4"
@@ -55,6 +52,8 @@ export DOCA_VERSION="3.1.0"
 export DOCA_DISTRO="rhel9.6"
 ```
 
+Build the container image:
+
 ```bash
 podman build -f rhcos-bfb.Containerfile \
   --authfile $PULL_SECRET \
@@ -66,35 +65,7 @@ podman build -f rhcos-bfb.Containerfile \
   --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
 ```
 
-Optionally, you can override the DOCA repository baseurl by either:
-
-**Option 1: Using environment variable**
-```bash
-export DOCA_BASEURL="<RPM_REPO_URL>"
-
-podman build -f rhcos-bfb.Containerfile \
-  --authfile $PULL_SECRET \
-  --build-arg D_ARCH=aarch64 \
-  --build-arg D_DOCA_VERSION=$DOCA_VERSION \
-  --build-arg RHCOS_VERSION=$RHCOS_VERSION \
-  --build-arg TARGET_IMAGE=$TARGET_IMAGE \
-  --build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
-  --build-arg D_DOCA_BASEURL=$DOCA_BASEURL \
-  --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
-```
-
-**Option 2: Directly via --build-arg**
-```bash
-podman build -f rhcos-bfb.Containerfile \
-  --authfile $PULL_SECRET \
-  --build-arg D_ARCH=aarch64 \
-  --build-arg D_DOCA_VERSION=$DOCA_VERSION \
-  --build-arg RHCOS_VERSION=$RHCOS_VERSION \
-  --build-arg TARGET_IMAGE=$TARGET_IMAGE \
-  --build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
-  --build-arg D_DOCA_BASEURL="<RPM_REPO_URL>" \
-  --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
-```
+Optionally, you can override the DOCA repository baseurl by adding: `-build-arg D_DOCA_BASEURL=<custom_doca_repo_baseurl>` to the above `podman build` command.
 
 ### Creating disk boot images
 ```bash
