@@ -157,7 +157,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   efibootmgr \
   i2c-tools \ 
   ipmitool \ 
-  ebtables-legacy iptables-legacy \
   nvmetcli\
   bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
   bf3-cec-fw-signed \
@@ -166,10 +165,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   && dnf clean all && \
   rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
   elfutils-libelf-devel meson libyaml-devel ninja-build epel-release
-
-# Temporary hack to reload mlx5_core
-COPY assets/reload_mlx.service /usr/lib/systemd/system
-COPY assets/reload_mlx.sh /usr/bin/reload_mlx.sh
 
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
 
@@ -205,18 +200,13 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable acpid.service || true; \
   systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
-  systemctl enable set_emu_param.service || true; \
-  systemctl enable reload_mlx.service || true;
+  systemctl enable set_emu_param.service || true;
 
 RUN bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
 
-# RUN echo 'omit_drivers+=" mlx4_core mlx4_en mlx5_core mlxbf_gige.ko mlxfw "' >> /usr/lib/dracut/dracut.conf.d/50-mellanox-overrides.conf 
-# RUN set -x; kver=$(cd /usr/lib/modules && echo *); \
-#   depmod -a $kver && \
-#   dracut -vf /usr/lib/modules/$kver/initramfs.img $kver
-
 # Finalize the container image
-RUN rm /opt && ln -s /var/opt /opt; \
+RUN set -xe; kver=$(ls /usr/lib/modules); env DRACUT_NO_XATTR=1 dracut -vf /usr/lib/modules/$kver/initramfs.img "$kver"; \
+  rm /opt && ln -s /var/opt /opt; \
   dnf clean all -y && \
   rm -rf /var/cache/* /var/log/* /etc/machine-id && \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
@@ -225,7 +215,6 @@ RUN rm /opt && ln -s /var/opt /opt; \
 
 LABEL "rhcos.version"="${RHCOS_VERSION}"
 LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
-# LABEL "rhcos.doca.distro"="${D_DOCA_DISTRO}"
 LABEL "com.coreos.osname"=rhcos
 LABEL "rhcos.custom.tag"="${IMAGE_TAG}"
 LABEL "org.opencontainers.image.version"="${COREOS_OPENCONTAINERS_IMAGE_VERSION}"
