@@ -187,6 +187,10 @@ RUN \
   semodule_package -o /tmp/sfc_controller.pp -m /tmp/sfc_controller.mod && \
   semodule -i /tmp/sfc_controller.pp && \
   rm -f /tmp/sfc_controller.te /tmp/sfc_controller.mod /tmp/sfc_controller.pp && \
+  #
+  # Patch Openvswitch permissions (Workaround)
+  sed -i '/OVS_USER_ID/c\OVS_USER_ID="root:root"' /etc/sysconfig/openvswitch && \
+  sed -i '/su/c\su root root' /etc/logrotate.d/openvswitch && \
   # Create a directory for BFB update scripts
   mkdir -p /opt/mellanox/bfb
 
