@@ -129,7 +129,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   mlnx-dpdk \
   mlnx-ethtool \
   mlnx-iproute2 \
-  mlnx-libsnap \
   mlx-OpenIPMI \
   mlxbf-bfscripts \
   mlxbf-bootimages-signed \
@@ -140,7 +139,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   opensm-static \
   perftest \
   rdma-core \
-  spdk \
   srp_daemon \
   ucx \
   ucx-cma \
@@ -207,6 +205,10 @@ RUN chmod +x /usr/bin/reload_mlx.sh; \
   systemctl enable set_emu_param.service || true;
 
 RUN bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
+
+# Remove dmsc and dmsd_binary to reduce image size. DMS is not required by DPF.
+RUN rm -rf /usr/opt/mellanox/doca/services/dms/dmsc && \
+  rm -rf /usr/opt/mellanox/doca/services/dms/dmsd_binary
 
 # Finalize the container image
 RUN set -xe; kver=$(ls /usr/lib/modules); env DRACUT_NO_XATTR=1 dracut -vf /usr/lib/modules/$kver/initramfs.img "$kver"; \
