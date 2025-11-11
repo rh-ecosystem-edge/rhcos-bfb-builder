@@ -80,7 +80,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   doca-bench \
   doca-caps \
   doca-comm-channel-admin \
-  doca-dms \
   doca-flow-tune \
   doca-openvswitch \
   doca-openvswitch-ipsec \
@@ -200,15 +199,10 @@ COPY assets/infojson.sh /opt/mellanox/bfb/infojson.sh
 RUN chmod +x /usr/bin/reload_mlx.sh; \
   chmod +x /usr/bin/install-rhcos.sh; \
   systemctl enable acpid.service || true; \
-  systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true;
 
 RUN bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
-
-# Remove dmsc and dmsd_binary to reduce image size. DMS is not required by DPF.
-RUN rm -rf /usr/opt/mellanox/doca/services/dms/dmsc && \
-  rm -rf /usr/opt/mellanox/doca/services/dms/dmsd_binary
 
 # Finalize the container image
 RUN set -xe; kver=$(ls /usr/lib/modules); env DRACUT_NO_XATTR=1 dracut -vf /usr/lib/modules/$kver/initramfs.img "$kver"; \
@@ -216,6 +210,7 @@ RUN set -xe; kver=$(ls /usr/lib/modules); env DRACUT_NO_XATTR=1 dracut -vf /usr/
   dnf clean all -y && \
   rm -rf /var/cache/* /var/log/* /etc/machine-id && \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
+  rm -rf /usr/share/man /usr/share/doc /usr/share/vim && \
   update-pciids && \
   ostree container commit
 
