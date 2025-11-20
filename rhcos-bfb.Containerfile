@@ -21,8 +21,6 @@ ENV D_DOCA_FINALURL=${D_DOCA_BASEURL:-https://linux.mellanox.com/public/repo/doc
 
 RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
-  dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
-  # EPEL is required for jsoncpp strongswan libunwind
   dnf clean all; \
   mkdir -p /tmp/rpms; \
   cat <<EOF > /etc/yum.repos.d/doca.repo
@@ -81,7 +79,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   doca-caps \
   doca-comm-channel-admin \
   doca-dms \
-  doca-flow-tune \
   doca-openvswitch \
   doca-openvswitch-ipsec \
   doca-openvswitch-selinux-policy \
@@ -129,7 +126,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   mlnx-dpdk \
   mlnx-ethtool \
   mlnx-iproute2 \
-  mlnx-libsnap \
   mlx-OpenIPMI \
   mlxbf-bfscripts \
   mlxbf-bootimages-signed \
@@ -140,7 +136,6 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   opensm-static \
   perftest \
   rdma-core \
-  spdk \
   srp_daemon \
   ucx \
   ucx-cma \
@@ -163,8 +158,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   vim-common \
   dhcp-client \
   && dnf clean all && \
-  rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
-  elfutils-libelf-devel meson libyaml-devel ninja-build epel-release
+  rpm -e --nodeps ngauge spdk collectx-clxapi doca-dms libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
+  elfutils-libelf-devel meson libyaml-devel ninja-build
 
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
 
@@ -202,7 +197,6 @@ COPY assets/infojson.sh /opt/mellanox/bfb/infojson.sh
 RUN chmod +x /usr/bin/reload_mlx.sh; \
   chmod +x /usr/bin/install-rhcos.sh; \
   systemctl enable acpid.service || true; \
-  systemctl enable dmsd.service || true; \
   systemctl enable mlx_ipmid.service || true; \
   systemctl enable set_emu_param.service || true;
 
