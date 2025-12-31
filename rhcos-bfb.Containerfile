@@ -154,10 +154,18 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
   bf3-cec-fw-signed \
   vim-common \
-  dhcp-client \
-  && dnf clean all && \
-  rpm -e --nodeps ngauge spdk collectx-clxapi doca-dms libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
-  elfutils-libelf-devel meson libyaml-devel ninja-build
+  dhcp-client && \
+  dnf clean all
+
+RUN rpm -e --nodeps ngauge || true && \
+  rpm -e --nodeps spdk || true && \
+  rpm -e --nodeps collectx-clxapi || true && \
+  rpm -e --nodeps doca-dms || true && \
+  rpm -e --nodeps libnl3-devel || true && \
+  rpm -e --nodeps kernel-headers || true && \
+  rpm -e --nodeps libzstd-devel || true && \
+  rpm -e --nodeps ncurses-devel || true && \
+  rpm -e --nodeps libpcap-devel || true
 
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
 
