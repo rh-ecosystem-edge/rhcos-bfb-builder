@@ -5,6 +5,8 @@ ARG D_ARCH
 ARG D_CONTAINER_VER=0
 ARG D_DOCA_VERSION
 ARG D_DOCA_BASEURL=https://linux.mellanox.com/public/repo/doca
+ARG D_DOCA_BASEURL_AUTH=false
+ARG D_DOCA_BASEURL_AUTH_CREDS
 
 FROM ${TARGET_IMAGE} AS base
 
@@ -12,6 +14,8 @@ ARG RHCOS_VERSION
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
 ARG D_DOCA_BASEURL=
+ARG D_DOCA_BASEURL_AUTH=false
+ARG D_DOCA_BASEURL_AUTH_CREDS
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 ARG IMAGE_TAG
@@ -23,10 +27,15 @@ RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rp
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
   dnf clean all; \
   mkdir -p /tmp/rpms; \
+  if [ "${D_DOCA_BASEURL_AUTH}" = "true" ] && [ -n "${D_DOCA_BASEURL_AUTH_CREDS}" ]; then \
+  REPO_URL=$(echo "${D_DOCA_FINALURL}" | sed -E "s|(https?://)(.*)|\1${D_DOCA_BASEURL_AUTH_CREDS}@\2|"); \
+  else \
+  REPO_URL="${D_DOCA_FINALURL}"; \
+  fi; \
   cat <<EOF > /etc/yum.repos.d/doca.repo
 [doca]
 name=Nvidia DOCA repository
-baseurl=${D_DOCA_FINALURL}
+baseurl=$REPO_URL
 gpgcheck=0
 enabled=1
 EOF
