@@ -233,6 +233,8 @@ spec:
         - $(params.build-args[*])
       - name: BUILD_ARGS_FILE
         value: $(params.build-args-file)
+      - name: ADDITIONAL_SECRET
+        value: d-doca-baseurl-auth-creds
       - name: PRIVILEGED_NESTED
         value: $(params.privileged-nested)
       - name: SOURCE_ARTIFACT
@@ -441,6 +443,8 @@ spec:
       - name: BUILD_ARGS
         value:
         - $(params.build-args[*])
+      - name: ADDITIONAL_SECRET
+        value: d-doca-baseurl-auth-creds
       - name: BUILD_ARGS_FILE
         value: $(params.build-args-file)
       - name: SOURCE_ARTIFACT
@@ -603,10 +607,15 @@ spec:
       optional: true
     - name: netrc
       optional: true
+    - name: d-doca-baseurl-auth-creds
+      optional: true
   taskRunTemplate:
     serviceAccountName: build-pipeline-rhcos-bfb-builder-e9f5e
   workspaces:
   - name: git-auth
     secret:
       secretName: '{{ git_auth_secret }}'
+  - name: d-doca-baseurl-auth-creds
+    secret:
+      secretName: d-doca-baseurl-auth-creds
 status: {}

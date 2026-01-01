@@ -23,14 +23,24 @@ ARG COREOS_OPENCONTAINERS_IMAGE_VERSION
 
 ENV D_DOCA_FINALURL=${D_DOCA_BASEURL:-https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/${D_DOCA_DISTRO}/arm64-dpu/}
 
-RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
+RUN --mount=type=secret,id=d-doca-baseurl-auth-creds/username-and-password \
+  dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
   dnf clean all; \
   mkdir -p /tmp/rpms; \
-  if [ "${D_DOCA_BASEURL_AUTH}" = "true" ] && [ -n "${D_DOCA_BASEURL_AUTH_CREDS}" ]; then \
-  REPO_URL=$(echo "${D_DOCA_FINALURL}" | sed -E "s|(https?://)(.*)|\1${D_DOCA_BASEURL_AUTH_CREDS}@\2|"); \
+  if [ "${D_DOCA_BASEURL_AUTH}" = "true" ]; then \
+    if [ -f /run/secrets/d-doca-baseurl-auth-creds/username-and-password ]; then \
+      DOCA_CREDS=$(cat /run/secrets/d-doca-baseurl-auth-creds/username-and-password); \
+    elif [ -n "${D_DOCA_BASEURL_AUTH_CREDS}" ]; then \
+      DOCA_CREDS="${D_DOCA_BASEURL_AUTH_CREDS}"; \
+    fi; \
+    if [ -n "${DOCA_CREDS}" ]; then \
+      REPO_URL=$(echo "${D_DOCA_FINALURL}" | sed -E "s|(https?://)(.*)|\1${DOCA_CREDS}@\2|"); \
+    else \
+      REPO_URL="${D_DOCA_FINALURL}"; \
+    fi; \
   else \
-  REPO_URL="${D_DOCA_FINALURL}"; \
+    REPO_URL="${D_DOCA_FINALURL}"; \
   fi; \
   cat <<EOF > /etc/yum.repos.d/doca.repo
 [doca]
