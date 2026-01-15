@@ -227,6 +227,7 @@ RUN set -xe; kver=$(ls /usr/lib/modules); env DRACUT_NO_XATTR=1 dracut -vf /usr/
   dnf clean all -y && \
   rm -rf /var/cache/* /var/log/* /etc/machine-id && \
   find /usr/share/locale -mindepth 1 -maxdepth 1 ! -name 'en' ! -name 'en_US' -exec rm -rf {} + && \
+  rm -rf /usr/share/man /usr/share/doc /usr/share/vim && \
   update-pciids && \
   ostree container commit
 

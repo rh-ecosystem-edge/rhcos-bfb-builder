@@ -55,7 +55,7 @@ export DOCA_DISTRO="rhel9.6"
 Build the container image:
 
 ```bash
-podman build -f rhcos-bfb.Containerfile \
+podman build --squash -f rhcos-bfb.Containerfile \
   --authfile $PULL_SECRET \
   --build-arg D_ARCH=aarch64 \
   --build-arg D_DOCA_VERSION=$DOCA_VERSION \
