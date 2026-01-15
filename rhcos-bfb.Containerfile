@@ -5,6 +5,8 @@ ARG D_ARCH
 ARG D_CONTAINER_VER=0
 ARG D_DOCA_VERSION
 ARG D_DOCA_BASEURL=https://linux.mellanox.com/public/repo/doca
+ARG D_DOCA_BASEURL_AUTH=false
+ARG D_DOCA_BASEURL_AUTH_CREDS
 
 FROM ${TARGET_IMAGE} AS base
 
@@ -12,6 +14,8 @@ ARG RHCOS_VERSION
 ARG D_DOCA_VERSION
 ARG D_DOCA_DISTRO
 ARG D_DOCA_BASEURL=
+ARG D_DOCA_BASEURL_AUTH=false
+ARG D_DOCA_BASEURL_AUTH_CREDS
 ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 ARG IMAGE_TAG
@@ -19,16 +23,29 @@ ARG COREOS_OPENCONTAINERS_IMAGE_VERSION
 
 ENV D_DOCA_FINALURL=${D_DOCA_BASEURL:-https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/${D_DOCA_DISTRO}/arm64-dpu/}
 
-RUN dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
+RUN --mount=type=secret,id=d-doca-baseurl-auth-creds/username-and-password \
+  dnf config-manager --set-enabled codeready-builder-for-rhel-9-$(uname -m)-rpms || \
   dnf config-manager --set-enabled codeready-builder-beta-for-rhel-9-$(uname -m)-rpms; \
-  dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm; \
-  # EPEL is required for jsoncpp strongswan libunwind
   dnf clean all; \
   mkdir -p /tmp/rpms; \
+  if [ "${D_DOCA_BASEURL_AUTH}" = "true" ]; then \
+    if [ -f /run/secrets/d-doca-baseurl-auth-creds/username-and-password ]; then \
+      DOCA_CREDS=$(cat /run/secrets/d-doca-baseurl-auth-creds/username-and-password); \
+    elif [ -n "${D_DOCA_BASEURL_AUTH_CREDS}" ]; then \
+      DOCA_CREDS="${D_DOCA_BASEURL_AUTH_CREDS}"; \
+    fi; \
+    if [ -n "${DOCA_CREDS}" ]; then \
+      REPO_URL=$(echo "${D_DOCA_FINALURL}" | sed -E "s|(https?://)(.*)|\1${DOCA_CREDS}@\2|"); \
+    else \
+      REPO_URL="${D_DOCA_FINALURL}"; \
+    fi; \
+  else \
+    REPO_URL="${D_DOCA_FINALURL}"; \
+  fi; \
   cat <<EOF > /etc/yum.repos.d/doca.repo
 [doca]
 name=Nvidia DOCA repository
-baseurl=${D_DOCA_FINALURL}
+baseurl=$REPO_URL
 gpgcheck=0
 enabled=1
 EOF
@@ -80,7 +97,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   doca-bench \
   doca-caps \
   doca-comm-channel-admin \
-  doca-flow-tune \
+  doca-dms \
   doca-openvswitch \
   doca-openvswitch-ipsec \
   doca-openvswitch-selinux-policy \
@@ -160,8 +177,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   vim-common \
   dhcp-client \
   && dnf clean all && \
-  rpm -e --nodeps libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
-  elfutils-libelf-devel meson libyaml-devel ninja-build epel-release
+  rpm -e --nodeps ngauge spdk collectx-clxapi doca-dms libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
+  elfutils-libelf-devel meson libyaml-devel ninja-build
 
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
 
