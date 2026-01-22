@@ -20,6 +20,9 @@ ARG D_ARCH
 ARG OFED_SRC_LOCAL_DIR
 ARG IMAGE_TAG
 ARG COREOS_OPENCONTAINERS_IMAGE_VERSION
+ARG BOOTIMAGES_PACKAGE=mlxbf-bootimages-signed
+ARG FW_PACKAGE=mlnx-fw-updater-signed
+ARG BMC_FW_PACKAGES="bf3-bmc-fw-signed bf3-cec-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw*"
 
 ENV D_DOCA_FINALURL=${D_DOCA_BASEURL:-https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/${D_DOCA_DISTRO}/arm64-dpu/}
 
@@ -147,8 +150,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   mlnx-iproute2 \
   mlx-OpenIPMI \
   mlxbf-bfscripts \
-  mlxbf-bootimages-signed \
-  mlnx-fw-updater-signed \
+  ${BOOTIMAGES_PACKAGE} \
+  ${FW_PACKAGE} \
   ofed-scripts \
   opensm \
   opensm-libs \
@@ -170,8 +173,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   i2c-tools \ 
   ipmitool \ 
   nvmetcli\
-  bf3-bmc-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw* \
-  bf3-cec-fw-signed \
+  ${BMC_FW_PACKAGES} \
   vim-common \
   dhcp-client && \
   dnf clean all
