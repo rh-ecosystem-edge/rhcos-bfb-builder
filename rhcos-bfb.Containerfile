@@ -258,8 +258,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   vim-common \
   dhcp-client \
   && dnf clean all && \
-  RUN dnf remove -y --setopt=skip_unavailable=True --noautoremove ngauge spdk collectx-clxapi doca-dms libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
-  elfutils-libelf-devel meson libyaml-devel ninja-build
+  rpm -e --nodeps collectx-clxapi doca-dms libnl3-devel kernel-headers libzstd-devel ncurses-devel libpcap-devel \
+  elfutils-libelf-devel libyaml-devel
 
 COPY assets/doca-ovs_sfc.te /tmp/sfc_controller.te
 
