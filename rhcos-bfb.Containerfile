@@ -103,7 +103,13 @@ ARG D_DOCA_BASEURL_AUTH_CREDS
 ARG KERNEL_TYPE=default
 ARG IMAGE_TAG
 ARG COREOS_OPENCONTAINERS_IMAGE_VERSION
-RUN mkdir -p /tmp/rpms && source /etc/os-release && echo "${VERSION_ID}" > /etc/dnf/vars/releasever && dnf config-manager --set-enabled rhel-9-for-aarch64-baseos-eus-rpms && dnf config-manager --set-enabled rhel-9-for-aarch64-appstream-eus-rpms
+# Pin dnf releasever to the exact RHEL minor version (e.g. 9.6) from /etc/os-release
+# and enable EUS repos for exact kernel version matching
+RUN mkdir -p /tmp/rpms && \
+  source /etc/os-release && \
+  echo "${VERSION_ID}" > /etc/dnf/vars/releasever && \
+  dnf config-manager --set-enabled rhel-9-for-aarch64-baseos-eus-rpms && \
+  dnf config-manager --set-enabled rhel-9-for-aarch64-appstream-eus-rpms
 
 COPY --from=builder /root/rpms/*.rpm /tmp/rpms
 
