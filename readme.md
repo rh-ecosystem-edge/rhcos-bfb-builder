@@ -1,93 +1,119 @@
 # RHCOS BFB Build
+
 This projects generates a Red Hat CoreOS (RHCOS) BFB image for the Nvidia BlueField DPU. It currently uses `custome-coreos-disk-images` to generate the live artifacts.
 
-### Pre-requisites
-Container image build requirements:
+## Pre-requisites
+
+### Container image build requirements
+
 - Podman
 - qemu-user-static-binfmt (needed for building on non-aarch64 machines)
-- subscription-manager (Will enable podman to automount the subscription entitlements)
-BFB build requirements:
+- Active Red Hat subscription and the `subscription-manager` package.
+
+### BFB build requirements
+
 - Fedora aarch64 41 or later (Due to osbuild dependencies)
 - skopeo
 - SELinux disabled
+- Disk Space - Ensure your Fedora system has at least 50GB of storage.
 
-Ensure your Fedora system has at least 50GB of storage.
-```bash
-[ $(df --output=avail / | tail -1) -lt 52428800 ] && echo "Warning: Less than 50GB available"
-```
+  `[ $(df --output=avail / | tail -1) -lt 52428800 ] && echo "Warning: Less than 50GB available"`
 
-Ensure you are logged in to the Red Hat subscription manager
-```bash
-sudo dnf install subscription-manager
-sudo subscription-manager register --username YOUR_USERNAME
-```
+## Preparation
 
-Ensure dependencies are installed
-```bash
-sudo dnf install -y podman skopeo git 
+1. Ensure you are logged in to the Red Hat subscription manager
 
-sudo dnf install -y osbuild osbuild-tools osbuild-ostree jq xfsprogs 
-```
+    ```bash
+    sudo dnf install subscription-manager
+    sudo subscription-manager register --username YOUR_USERNAME
+    ```
 
-### Clone the project
-The project contains Mellanox's bfscripts as a git submoudle, so be sure to clone it as well:
-```bash
-git clone --recursive https://github.com/rh-ecosystem-edge/rhcos-bfb-builder.git
-```
+2. Ensure dependencies are installed
 
-First use an openshift cluster to check the release image for the RHCOS version you want to build.
-```bash
-export RHCOS_VERSION="4.20.4"
-export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
-```
+    ```bash
+    sudo dnf install -y podman skopeo git \
+    osbuild osbuild-tools osbuild-ostree jq xfsprogs genisoimage
+    ```
 
-Make sure you export PULL_SECRET, you can obtain it from https://console.redhat.com/openshift/install/pull-secret.
-```bash
-export PULL_SECRET=<path to pull secret file>
-```
+## Building the Image
 
-Set Nvidia DPU stack versions:
-```bash
-export DOCA_VERSION="3.1.0"
-export DOCA_DISTRO="rhel9.6"
-```
+1. The project contains Mellanox's bfscripts as a git submoudle, so be sure to clone it as well:
 
-Build the container image:
+    ```bash
+    git clone --recursive https://github.com/rh-ecosystem-edge/rhcos-bfb-builder.git
+    ```
 
-```bash
-podman build -f rhcos-bfb.Containerfile \
-  --authfile $PULL_SECRET \
-  --build-arg D_ARCH=aarch64 \
-  --build-arg D_DOCA_VERSION=$DOCA_VERSION \
-  --build-arg RHCOS_VERSION=$RHCOS_VERSION \
-  --build-arg TARGET_IMAGE=$TARGET_IMAGE \
-  --build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
-  --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
-```
+2. Obtain the OpenShift pull secret file and export it as an environment variable. you can obtain it from [Red Hat OpenShift Console](https://console.redhat.com/openshift/install/pull-secret).
 
-Optionally, you can override the DOCA repository baseurl by adding: `-build-arg D_DOCA_BASEURL=<custom_doca_repo_baseurl>` to the above `podman build` command.
+    ```sh
+    export PULL_SECRET=<path to pull secret file>
+    ```
 
-### Creating disk boot images
-```bash
-skopeo copy containers-storage:localhost/rhcos-bfb:$RHCOS_VERSION-latest oci-archive:rhcos-bfb_$RHCOS_VERSION.ociarchive
-```
+3. Get the RHCOS release images from OCP release payload, in this example we use 4.22.0-ec.4
 
-You can follow the instructions at [custom-coreos-disk-images](/custom-coreos-disk-images/README.md) to generate the live artifacts.
-```bash
-# In Fedora based system:
-sudo dnf install -y osbuild osbuild-tools osbuild-ostree jq xfsprogs genisoimage
-sudo custom-coreos-disk-images/custom-coreos-disk-images.sh \
-  --ociarchive rhcos-bfb_$RHCOS_VERSION.ociarchive \
-  --platforms live \
-  --metal-image-size 5000
-```
+    ```bash
+    export RHCOS_VERSION="4.22.0-ec.4"
+    export TARGET_IMAGE=$(oc adm release info --image-for rhel-coreos "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
 
-### Creating a BFB image
+    # driver-toolkit
+    export BUILDER_IMAGE=$(oc adm release info --image-for driver-toolkit "quay.io/openshift-release-dev/ocp-release:"$RHCOS_VERSION"-aarch64")
+    ```
+
+4. Set NVIDIA DOCA stack versions
+
+    Set Nvidia DPU stack versions:
+
+    ```bash
+    export DOCA_VERSION="3.3.0"
+    export OFED_VERSION="26.01-1.0.0.0"
+    export DOCA_DISTRO="rhel9.6"
+    ```
+
+5. Build the container image:
+
+    ```bash
+    podman build --squash -f rhcos-bfb.Containerfile \
+      --authfile $PULL_SECRET \
+      --build-arg RHCOS_VERSION=$RHCOS_VERSION \
+      --build-arg TARGET_IMAGE=$TARGET_IMAGE \
+      --build-arg BUILDER_IMAGE=$BUILDER_IMAGE \
+      --build-arg D_DOCA_VERSION=$DOCA_VERSION \
+      --build-arg D_OFED_VERSION=$OFED_VERSION \
+      --build-arg D_DOCA_DISTRO=$DOCA_DISTRO \
+      --tag "rhcos-bfb:$RHCOS_VERSION-latest" .
+    ```
+
+    Optionally, you can override the DOCA repository baseurl by adding: `-build-arg D_DOCA_BASEURL=<custom_doca_repo_baseurl>` to the above `podman build` command.
+
+## Creating disk boot images
+
+1. Export the container image into oci-archive format.
+
+    ```bash
+    skopeo copy containers-storage:localhost/rhcos-bfb:$RHCOS_VERSION-latest \
+    oci-archive:rhcos-bfb_$RHCOS_VERSION.ociarchive
+    ```
+
+2. Execute [custom-coreos-disk-images](/custom-coreos-disk-images/README.md) to generate the live artifacts.
+
+    ```bash
+    # In the Fedora based system:
+    sudo custom-coreos-disk-images/custom-coreos-disk-images.sh \
+      --ociarchive rhcos-bfb_$RHCOS_VERSION.ociarchive \
+      --platforms live \
+      --metal-image-size 5000
+    ```
+
+## Creating a BFB image
+
+Just execute the simple bash based BFB generation script.
+
 ```bash
 ./make_bfb.sh
 ```
 
-### Flashing to DPU
+## Booting the BFB on a BF3 DPU
+
 ```bash
 bfb-install --rshim /dev/rshim0 --config worker.ign --bfb rhcos.bfb
 ```

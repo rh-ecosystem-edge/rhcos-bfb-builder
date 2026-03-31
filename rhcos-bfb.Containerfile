@@ -6,6 +6,7 @@ ARG D_DOCA_VERSION
 ARG D_DOCA_BASEURL
 ARG D_DOCA_BASEURL_AUTH=false
 ARG D_DOCA_BASEURL_AUTH_CREDS=
+ARG KERNEL_TYPE=default
 
 
 FROM ${BUILDER_IMAGE} AS builder
@@ -13,14 +14,19 @@ FROM ${BUILDER_IMAGE} AS builder
 ARG D_DOCA_VERSION
 ARG D_OFED_VERSION
 ARG D_CONTAINER_VER
+ARG KERNEL_TYPE=default
 
 
 ARG DOCA_SOURCES_URL="https://linux.mellanox.com/public/repo/doca/${D_DOCA_VERSION}/SOURCES"
 
 WORKDIR /root
 
-RUN KVER=$(ls /usr/lib/modules | head -n1) && \
-  echo "KVER=$KVER" >> /kernelver.env  
+RUN if [ "$KERNEL_TYPE" = "64k" ]; then \
+  KVER=$(ls /usr/lib/modules | grep 64k | head -n1); \
+  else \
+  KVER=$(ls /usr/lib/modules | grep -v 64k | head -n1); \
+  fi && \
+  echo "KVER=$KVER" >> /kernelver.env
 
 ARG D_OFED_SRC_ARCHIVE="MLNX_OFED_SRC-${D_OFED_SRC_TYPE}${D_OFED_VERSION}.tgz"
 
@@ -99,7 +105,15 @@ ARG BOOTIMAGES_PACKAGE=mlxbf-bootimages-signed
 ARG FW_PACKAGE=mlnx-fw-updater-signed
 ARG BMC_FW_PACKAGES="bf3-bmc-fw-signed bf3-cec-fw-signed bf3-bmc-gi-signed bf3-bmc-nic-fw*"
 
-RUN mkdir /tmp/rpms
+ARG KERNEL_TYPE=default
+
+# Pin dnf releasever to the exact RHEL minor version (e.g. 9.6) from /etc/os-release
+# and enable EUS repos for exact kernel version matching
+RUN mkdir -p /tmp/rpms && \
+  source /etc/os-release && \
+  echo "${VERSION_ID}" > /etc/dnf/vars/releasever && \
+  dnf config-manager --set-enabled rhel-9-for-aarch64-baseos-eus-rpms && \
+  dnf config-manager --set-enabled rhel-9-for-aarch64-appstream-eus-rpms
 
 COPY --from=builder /root/rpms/*.rpm /tmp/rpms
 
@@ -133,6 +147,17 @@ enabled=1
 EOF
 
 WORKDIR /
+
+RUN if [ "$KERNEL_TYPE" = "64k" ]; then \
+  echo "Installing 64k kernel variant..." && \
+  KVER=$(rpm -q kernel-core --queryformat '%{VERSION}-%{RELEASE}') && \
+  dnf install -y --setopt=install_weak_deps=False \
+    kernel-64k-core-${KVER} \
+    kernel-64k-modules-${KVER} \
+    kernel-64k-modules-core-${KVER} \
+    kernel-64k-modules-extra-${KVER} && \
+  rpm -e --nodeps kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra; \
+  fi
 
 RUN \
   # Setup /opt for package installations
@@ -251,15 +276,15 @@ RUN dnf -y install --setopt=install_weak_deps=False \
   device-mapper \
   lm_sensors \
   efibootmgr \
-  i2c-tools \ 
-  ipmitool \ 
+  i2c-tools \
+  ipmitool \
   nvmetcli\
   ${BMC_FW_PACKAGES} \
   vim-common \
   dhcp-client && \
-  dnf clean all
-
-RUN rpm -e --nodeps ngauge || true && \
+  dnf clean all && \
+  #
+  rpm -e --nodeps ngauge || true && \
   rpm -e --nodeps spdk || true && \
   rpm -e --nodeps collectx-clxapi || true && \
   rpm -e --nodeps doca-dms || true && \
@@ -281,10 +306,6 @@ RUN \
   cp /usr/share/doc/mlnx-ofa_kernel/vf-net-link-name.sh /etc/infiniband/vf-net-link-name.sh && \
   cp /usr/share/doc/mlnx-ofa_kernel/82-net-setup-link.rules /usr/lib/udev/rules.d/82-net-setup-link.rules && \
   #
-  # Patch installed packages
-  sed -i 's/\/run\/log/\/var\/log/i' /usr/bin/mlx_ipmid_init.sh && \
-  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/set_emu_param.service && \
-  sed -i 's/\/run\/log/\/var\/log/i' /usr/lib/systemd/system/mlx_ipmid.service && \
   echo "hugetlbfs:x:$(getent group hugetlbfs | cut -d: -f3):openvswitch" >> /etc/group && \
   sed -i 's/${tmpdir}/${TMP_DIR}/' /usr/bin/bfcfg && \
   echo "L+ /opt/mellanox - - - - /usr/opt/mellanox" > /etc/tmpfiles.d/link-opt.conf && \
@@ -307,9 +328,8 @@ COPY assets/infojson.sh /opt/mellanox/bfb/infojson.sh
 RUN chmod +x /usr/bin/install-rhcos.sh; \
   systemctl enable acpid.service || true; \
   systemctl enable mlx_ipmid.service || true; \
-  systemctl enable set_emu_param.service || true;
-
-RUN bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
+  systemctl enable set_emu_param.service || true; \
+  bash /opt/mellanox/bfb/infojson.sh > /opt/mellanox/bfb/info.json
 
 # Finalize the container image
 RUN set -xe; kver=$(ls /usr/lib/modules); env DRACUT_NO_XATTR=1 dracut -vf /usr/lib/modules/$kver/initramfs.img "$kver"; \
@@ -323,6 +343,7 @@ RUN set -xe; kver=$(ls /usr/lib/modules); env DRACUT_NO_XATTR=1 dracut -vf /usr/
 
 LABEL "rhcos.version"="${RHCOS_VERSION}"
 LABEL "rhcos.doca.version"="${D_DOCA_VERSION}"
+LABEL "rhcos.kernel.type"="${KERNEL_TYPE}"
 LABEL "com.coreos.osname"=rhcos
 LABEL "rhcos.custom.tag"="${IMAGE_TAG}"
 LABEL "org.opencontainers.image.version"="${COREOS_OPENCONTAINERS_IMAGE_VERSION}"
